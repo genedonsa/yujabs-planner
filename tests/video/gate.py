@@ -29,6 +29,8 @@ if need_app:
         for k in ("ffmpeg", "whisper", "deno"):
             if not s.get(k):
                 bad.append(f"{f.name}: {k} 없음")
+        if not str(s.get("mcp", "")).startswith("ok"):  # Claude 앱 연결 통로
+            bad.append(f"{f.name}: mcp = {str(s.get('mcp'))[:200]}")
         for k in ("access_error", "tools_error", "video_error"):
             if s.get(k):
                 bad.append(f"{f.name}: {s[k][:200]}")
