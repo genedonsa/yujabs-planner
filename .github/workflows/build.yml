@@ -25,17 +25,17 @@ jobs:
         run: python -m pytest -q tests
       - name: Build app
         run: >
-          pyinstaller --noconfirm --windowed --name "YujabsPlanner"
+          pyinstaller --noconfirm --windowed --name "CornBot"
           --icon assets/icon.png
           --add-data "ui:ui" --add-data "assets:assets" --add-data "prompts:prompts"
           desktop.py
       - name: Zip (mac)
         if: runner.os == 'macOS'
-        run: ditto -c -k --keepParent "dist/YujabsPlanner.app" "YujabsPlanner-mac.zip"
+        run: ditto -c -k --keepParent "dist/CornBot.app" "CornBot-mac.zip"
       - name: Zip (windows)
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path dist/YujabsPlanner/* -DestinationPath YujabsPlanner-windows.zip
+        run: Compress-Archive -Path dist/CornBot/* -DestinationPath CornBot-windows.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: YujabsPlanner-${{ runner.os }}
-          path: YujabsPlanner-*.zip
+          name: CornBot-${{ runner.os }}
+          path: CornBot-*.zip

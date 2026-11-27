@@ -1,0 +1,26 @@
+name: collect-test
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/collect-test.yml", "planner/collect.py"]
+
+jobs:
+  collect:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Channel list
+        run: python -m planner.collect --channel "https://www.youtube.com/@유튜브-잡스"
+        continue-on-error: true
+      - name: Video detail (transcript + comments)
+        run: python -m planner.collect --video "https://youtu.be/0bO9HVfewUo"
+        continue-on-error: true
+      - name: Search
+        run: python -m planner.collect --search "유튜브 수익화"
+        continue-on-error: true
