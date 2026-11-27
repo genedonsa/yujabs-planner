@@ -56,7 +56,7 @@ jobs:
         run: >
           pyinstaller --noconfirm --windowed --name "CornBot"
           --icon assets/icon.png
-          --collect-all yt_dlp_ejs --collect-data certifi
+          --collect-all yt_dlp_ejs --collect-data certifi --hidden-import truststore
           --add-binary "bin/deno:bin"
           --add-data "ui:ui" --add-data "assets:assets" --add-data "prompts:prompts"
           desktop.py
@@ -65,7 +65,7 @@ jobs:
         run: >
           pyinstaller --noconfirm --windowed --name "CornBot"
           --icon assets/icon.png
-          --collect-all yt_dlp_ejs --collect-data certifi
+          --collect-all yt_dlp_ejs --collect-data certifi --hidden-import truststore
           --add-binary "bin/deno.exe:bin" --add-binary "bin/MicrosoftEdgeWebview2Setup.exe:bin"
           --add-data "ui:ui" --add-data "assets:assets" --add-data "prompts:prompts"
           desktop.py

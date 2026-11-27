@@ -1,0 +1,90 @@
+name: env-test
+
+# 회원 컴퓨터처럼 '다른 환경'을 여러 개 만들어, 실제 설치 방법 그대로 깔고 실제 앱으로 점검한다.
+# - 맥 여러 버전(Apple 칩·Intel), 윈도우 여러 버전
+# - 한 줄 설치(install.sh / install.ps1)로 설치
+# - 보안 프로그램이 인터넷 연결을 가로채는 환경(백신·회사 보안) 재현
+# - 압축 파일을 브라우저로 받았을 때 맥 보안 검사(Gatekeeper) 결과
+on:
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  mac:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-15, macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: 1. 한 줄 설치 (회원과 똑같이)
+        run: curl -fsSL https://github.com/genedonsa/yujabs-planner/releases/latest/download/install.sh | CORNBOT_NO_OPEN=1 bash
+      - name: 2. 설치된 앱 점검 (보통 환경)
+        run: |
+          APP=/Applications/CornBot.app; [ -d "$APP" ] || APP="$HOME/Applications/CornBot.app"
+          "$APP/Contents/MacOS/CornBot" "--selftest=$PWD/normal.json"; cat normal.json
+          echo "### ${{ matrix.os }} 보통 환경" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY; cat normal.json >> $GITHUB_STEP_SUMMARY; echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -q '"password_유잡스02": true' normal.json
+      - name: 3. 보안 프로그램이 연결을 가로채는 환경
+        run: |
+          python3 -m pip install -q --break-system-packages mitmproxy 2>/dev/null || python3 -m pip install -q mitmproxy
+          (mitmdump --listen-port 8080 -q > mitm.log 2>&1 &) ; sleep 8
+          sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/.mitmproxy/mitmproxy-ca-cert.pem
+          APP=/Applications/CornBot.app; [ -d "$APP" ] || APP="$HOME/Applications/CornBot.app"
+          HTTPS_PROXY=http://127.0.0.1:8080 HTTP_PROXY=http://127.0.0.1:8080 "$APP/Contents/MacOS/CornBot" "--selftest=$PWD/mitm.json"; cat mitm.json
+          echo "### ${{ matrix.os }} 보안 프로그램 가로채기 환경" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY; cat mitm.json >> $GITHUB_STEP_SUMMARY; echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -q '"password_유잡스02": true' mitm.json
+      - name: 4. 압축 파일을 브라우저로 받았을 때 맥 보안 검사
+        continue-on-error: true
+        run: |
+          FILE=CornBot-macOS.zip; [ "$(uname -m)" = "arm64" ] || FILE=CornBot-macOS-Intel.zip
+          curl -fsSL -o z.zip https://github.com/genedonsa/yujabs-planner/releases/latest/download/$FILE
+          ditto -x -k z.zip dl
+          xattr -w com.apple.quarantine "0083;$(printf %x $(date +%s));Safari;" dl/CornBot.app
+          echo "### ${{ matrix.os }} 브라우저로 받은 압축 파일" >> $GITHUB_STEP_SUMMARY
+          (spctl -a -vv dl/CornBot.app 2>&1 || true) | tee -a $GITHUB_STEP_SUMMARY
+
+  windows:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: 1. 한 줄 설치 (회원과 똑같이)
+        run: |
+          $env:CORNBOT_NO_OPEN = "1"
+          irm https://github.com/genedonsa/yujabs-planner/releases/latest/download/install.ps1 | iex
+      - name: 2. 설치된 앱 점검 (보통 환경)
+        run: |
+          $exe = Join-Path $env:LOCALAPPDATA "CornBot\CornBot.exe"
+          Start-Process -Wait -FilePath $exe -ArgumentList "--selftest=$PWD\normal.json"
+          Get-Content normal.json
+          "### ${{ matrix.os }} 보통 환경`n``````" | Add-Content $env:GITHUB_STEP_SUMMARY
+          Get-Content normal.json | Add-Content $env:GITHUB_STEP_SUMMARY
+          "``````" | Add-Content $env:GITHUB_STEP_SUMMARY
+          if (-not (Select-String -Path normal.json -Pattern '"password_유잡스02": true' -Quiet)) { exit 1 }
+          if (-not (Test-Path ([Environment]::GetFolderPath("Desktop") + "\CornBot.lnk"))) { Write-Host "바탕화면 아이콘 없음"; exit 1 }
+      - name: 3. 보안 프로그램이 연결을 가로채는 환경
+        run: |
+          python -m pip install -q mitmproxy
+          Start-Process -FilePath mitmdump -ArgumentList "--listen-port 8080 -q"
+          Start-Sleep 10
+          certutil -addstore -f Root "$env:USERPROFILE\.mitmproxy\mitmproxy-ca-cert.cer"
+          $env:HTTPS_PROXY = "http://127.0.0.1:8080"; $env:HTTP_PROXY = "http://127.0.0.1:8080"
+          $exe = Join-Path $env:LOCALAPPDATA "CornBot\CornBot.exe"
+          Start-Process -Wait -FilePath $exe -ArgumentList "--selftest=$PWD\mitm.json"
+          Get-Content mitm.json
+          "### ${{ matrix.os }} 보안 프로그램 가로채기 환경`n``````" | Add-Content $env:GITHUB_STEP_SUMMARY
+          Get-Content mitm.json | Add-Content $env:GITHUB_STEP_SUMMARY
+          "``````" | Add-Content $env:GITHUB_STEP_SUMMARY
+          if (-not (Select-String -Path mitm.json -Pattern '"password_유잡스02": true' -Quiet)) { exit 1 }
