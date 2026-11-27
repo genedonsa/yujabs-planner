@@ -44,18 +44,27 @@ def test_no_access_url_is_error(monkeypatch):
         access.check("아무거나")
 
 
-def test_pick_one_per_channel_and_fresh():
+def test_pick_one_per_channel_week_first_then_fill():
     today = date(2026, 11, 27)
     a = [v("a1", "A", 10000, date(2026, 11, 25)), v("a2", "A", 9000, date(2026, 11, 24))]
-    b = [v("b1", "B", 3000, date(2026, 11, 20)), v("old", "B", 99999, date(2026, 9, 1))]
-    cands = [(x, 1000.0) for x in a + b]
-    got = pick(cands, today)
-    assert [x[0].id for x in got] == ["a1", "b1"]
+    b = [v("b1", "B", 3000, date(2026, 11, 22)), v("old", "B", 99999, date(2026, 9, 1))]
+    c = [v("c1", "C", 5000, date(2026, 11, 16))]          # 11일 전: 1주 밖 → 보충으로만
+    d = [v("d1", "D", 1500, date(2026, 11, 26))]          # 1.5배: 기준 미달
+    e = [v("seen", "E", 9000, date(2026, 11, 26))]        # 지난번에 보여준 영상
+    cands = [(x, 1000.0) for x in a + b + c + d + e]
+    got = pick(cands, today, exclude={"seen"})
+    assert [x[0].id for x in got] == ["a1", "b1", "c1"]
+    assert got[2][0].extra.get("보충") and not got[0][0].extra.get("보충")
 
 
-def test_baseline_is_median():
-    vids = [v(str(i), "A", n, None) for i, n in enumerate([100, 200, 300, 10000])]
-    assert channel_baseline(vids) == 250
+def test_baseline_is_recent30_average_without_last_week():
+    today = date(2026, 11, 27)
+    vids = [v("new", "A", 50000, date(2026, 11, 25))]  # 최근 1주: 평소 계산에서 뺌
+    vids += [v(f"o{i}", "A", 1000 + i, date(2026, 11, 10) - __import__("datetime").timedelta(days=i)) for i in range(40)]
+    vids += [v("tiny", "A", 3, date(2026, 11, 9))]       # 조회수 10 미만 무시
+    base = channel_baseline(vids, today)
+    # 최신 30편(new 포함) 중 new를 뺀 29편 평균
+    assert base == sum(1000 + i for i in range(29)) / 29
 
 
 def test_keywords():
