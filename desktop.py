@@ -181,7 +181,42 @@ def ensure_webview2() -> None:
         pass
 
 
+def selftest(out: str) -> None:
+    """빌드 서버에서 실제 앱으로 돌려 보는 점검. 결과를 파일로 남긴다."""
+    import platform
+    import ssl
+    rep = {"platform": platform.platform(), "python": sys.version.split()[0], "base": str(BASE),
+           "ui_exists": UI.exists(), "openssl": ssl.OPENSSL_VERSION}
+    try:
+        import certifi
+        rep["certifi"] = certifi.where()
+        rep["certifi_exists"] = Path(certifi.where()).exists()
+    except Exception as e:
+        rep["certifi"] = f"ERR {e}"
+    try:
+        rep["fingerprints"] = len(access.current_fingerprints())
+        rep["password_유잡스02"] = access.check("유잡스02")
+        rep["password_dbwkqtm02"] = access.check("dbwkqtm02")
+    except Exception as e:
+        rep["access_error"] = f"{type(e).__name__}: {e}"
+    try:
+        from planner import net
+        rep["deno"] = net.bundled_deno()
+        if rep["deno"]:
+            rep["deno_version"] = subprocess.run([rep["deno"], "--version"], capture_output=True, text=True,
+                                                 timeout=30).stdout.splitlines()[0]
+        import yt_dlp
+        rep["yt_dlp"] = yt_dlp.version.__version__
+    except Exception as e:
+        rep["tools_error"] = f"{type(e).__name__}: {e}"
+    Path(out).write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def main():
+    for a in sys.argv[1:]:
+        if a.startswith("--selftest="):
+            selftest(a.split("=", 1)[1])
+            return
     ensure_webview2()
     api = Api()
     webview.create_window(APP_NAME, str(UI), js_api=api, width=1100, height=780, min_size=(900, 640))
