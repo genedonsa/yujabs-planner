@@ -137,6 +137,8 @@ def hits(ch: dict, vids: list[Video], base: float, today: date, c: dict) -> list
         if age > c["days"] or v.views < c["min_views"]:
             continue
         r = v.views / base
+        if base < 1000:  # 평소 조회수가 너무 적은 채널은 배수가 부풀어서 뺀다 (평소 288회 → 287배 같은 경우)
+            continue
         if r >= c["ratio"]:
             out.append({"id": v.id, "title": v.title, "channel": ch.get("name") or v.channel_name,
                         "channel_id": ch.get("id"), "views": v.views, "ratio": round(r, 1),
