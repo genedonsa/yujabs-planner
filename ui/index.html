@@ -162,6 +162,7 @@ label{font-weight:800;font-size:14px;display:block}
   <button class="nav" data-nav="refs" hidden>레퍼런스</button>
   <button class="nav" data-nav="bench" hidden>벤치마킹 채널</button>
   <button class="nav" data-nav="plans" hidden>내 기획안</button>
+  <button class="nav" data-nav="video" hidden>영상 만들기</button>
   <button class="nav" data-nav="settings" hidden>설정</button>
   <span class="sp"></span>
   <span class="badge" id="monthBadge" hidden></span><span class="badge" id="ver"></span>
@@ -246,6 +247,25 @@ label{font-weight:800;font-size:14px;display:block}
   </div>
 </section>
 
+<!-- 영상 만들기 -->
+<section id="s-video" class="screen" hidden>
+  <div class="prog panel stack">
+    <img class="mw" src="cony_work.webp" alt="">
+    <div><h1 class="disp" style="font-size:28px">영상 만들기</h1>
+      <p class="hint">촬영한 원본 영상(롱폼)을 한 폴더에 넣고 고르세요. 여러 개면 파일 이름 순서대로 이어 붙여요.</p></div>
+    <ul class="hint" style="margin:0;padding-left:18px;line-height:1.7"><li>말 없는 구간과 '어·음' 같은 추임새를 잘라요</li><li>찍다가 "다시"라고 말하면 틀린 부분을 지우고 다시 말한 부분만 남겨요</li><li>자막(한 줄 20자, 숫자는 노란색)을 넣고 목소리 크기를 맞춰요</li></ul>
+    <div class="row"><button class="btn" id="vPick">폴더 고르기</button><span id="vFolder" class="hint">아직 고르지 않았어요</span></div>
+    <div class="row"><label for="vStyle" style="font-weight:800">편집 스타일</label><select id="vStyle"></select></div>
+    <p class="err" id="vErr" hidden></p>
+    <div class="row" style="justify-content:flex-end"><button class="btn go" id="vGo">영상 만들기</button></div>
+    <div id="vRun" hidden><ol class="plist" id="vlist"></ol><div class="log" id="vlog"></div>
+      <p class="hint" style="margin-top:8px">처음 한 번은 받아쓰기 모델(약 500MB)을 받느라 더 걸려요. 10분짜리 영상은 보통 5~15분 걸려요.</p></div>
+    <div id="vDone" hidden class="stack" style="gap:10px"><h2 class="disp" style="font-size:22px">다 만들었어요</h2><p id="vSum"></p>
+      <div class="row"><button class="btn primary" id="vOpen">완성 폴더 열기</button></div>
+      <p class="hint">'콘봇_완성' 폴더에 최종.mp4와 자막.srt가 있어요. 자막.srt는 유튜브에 올릴 때 자막 파일로 넣을 수 있어요.</p></div>
+  </div>
+</section>
+
 <!-- 설정 -->
 <section id="s-settings" class="screen stack" hidden>
   <div class="lhead"><div><p class="hint">콘봇이 자동으로 정한 것도 전부 여기서 바꿀 수 있어요</p><h1>설정</h1></div><button class="btn" id="resetCrit">찾는 기준을 유잡스 기본값으로</button></div>
@@ -286,7 +306,26 @@ function show(id){document.querySelectorAll(".screen").forEach(s=>s.hidden=s.id!
   document.querySelectorAll(".nav").forEach(n=>n.setAttribute("aria-current",n.dataset.nav===id));window.scrollTo(0,0);}
 function navOn(on){document.querySelectorAll(".nav").forEach(n=>n.hidden=!on);$("monthBadge").hidden=!on;}
 document.addEventListener("click",e=>{if(e.target.closest("[data-start]")){fillSetup();show("setup");return;}const b=e.target.closest("[data-nav]");if(!b)return;const t=b.dataset.nav;
-  if(t==="refs")renderRefs(); if(t==="bench")renderBench(); if(t==="plans")openPlans(); if(t==="settings")renderSettings(); show(t==="plans"?"plan":t);});
+  if(t==="refs")renderRefs(); if(t==="bench")renderBench(); if(t==="plans")openPlans(); if(t==="settings")renderSettings(); if(t==="video")openVideo(); show(t==="plans"?"plan":t);});
+
+
+/* ---------- 영상 만들기 ---------- */
+let vFolder="", vRes=null;
+const VSTEPS=[["join","영상 이어 붙이기"],["stt","말 받아쓰기"],["cut","자를 곳 고르기"],["render","자막 넣고 최종본 만들기"]];
+async function openVideo(){const st=await api.video_styles();$("vStyle").innerHTML=st.map(x=>`<option>${esc(x)}</option>`).join("");}
+$("vPick").onclick=async()=>{const f=await api.pick_folder();if(f){vFolder=f;$("vFolder").textContent=f;$("vErr").hidden=true;}};
+$("vGo").onclick=async()=>{$("vErr").hidden=true;const r=await api.start_video(vFolder,$("vStyle").value);
+  if(!r.ok){$("vErr").textContent=r.error;$("vErr").hidden=false;return;}
+  $("vGo").disabled=true;$("vPick").disabled=true;$("vDone").hidden=true;$("vRun").hidden=false;vpoll();};
+async function vpoll(){const p=await api.video_progress();const idx=VSTEPS.findIndex(s=>s[0]===p.step);const fin=p.step==="done";
+  $("vlist").innerHTML=VSTEPS.map((s,i)=>`<li class="${fin||i<idx?"done":i===idx?"now":""}"><span class="dot">${fin||i<idx?"✓":""}</span>${s[1]}</li>`).join("");
+  $("vlog").textContent=(p.log||[]).join("\n");
+  if(p.running){setTimeout(vpoll,1000);return;}
+  $("vGo").disabled=false;$("vPick").disabled=false;
+  if(p.error){$("vRun").hidden=true;$("vErr").textContent=p.error;$("vErr").hidden=false;return;}
+  if(p.result){vRes=p.result;$("vRun").hidden=true;$("vDone").hidden=false;
+    const mmss=x=>(x>=60?Math.floor(x/60)+"분 ":"")+Math.round(x%60)+"초";$("vSum").textContent=`${mmss(p.result.before)} → ${mmss(p.result.after)}로 줄였어요. 자막 ${p.result.lines}줄.`;}}
+$("vOpen").onclick=()=>vRes&&api.open_folder(vRes.folder);
 
 /* ---------- 시작 ---------- */
 async function boot(){
