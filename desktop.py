@@ -146,7 +146,43 @@ class Api:
         webbrowser.open(url)
 
 
+WEBVIEW2_ID = "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+
+
+def _has_webview2() -> bool:
+    import winreg  # type: ignore
+    keys = [
+        (winreg.HKEY_LOCAL_MACHINE, rf"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_ID}"),
+        (winreg.HKEY_LOCAL_MACHINE, rf"SOFTWARE\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_ID}"),
+        (winreg.HKEY_CURRENT_USER, rf"Software\Microsoft\EdgeUpdate\Clients\{WEBVIEW2_ID}"),
+    ]
+    for root, key in keys:
+        try:
+            with winreg.OpenKey(root, key) as k:
+                v, _ = winreg.QueryValueEx(k, "pv")
+                if v and v != "0.0.0.0":
+                    return True
+        except OSError:
+            pass
+    return False
+
+
+def ensure_webview2() -> None:
+    """윈도우: 화면을 그리는 WebView2가 없으면 앱에 든 설치기로 조용히 깔아 둔다(회원이 따로 할 일 없음)."""
+    if os.name != "nt":
+        return
+    try:
+        if _has_webview2():
+            return
+        setup = BASE / "bin" / "MicrosoftEdgeWebview2Setup.exe"
+        if setup.exists():
+            subprocess.run([str(setup), "/silent", "/install"], timeout=600)
+    except Exception:
+        pass
+
+
 def main():
+    ensure_webview2()
     api = Api()
     webview.create_window(APP_NAME, str(UI), js_api=api, width=1100, height=780, min_size=(900, 640))
     webview.start()
