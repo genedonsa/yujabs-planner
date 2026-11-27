@@ -64,7 +64,7 @@ def run(clip_dir: Path, res: Path) -> None:
         text = " ".join(l for l in srt.splitlines() if l and not l[0].isdigit() and "-->" not in l)
         rep["checks"] = {
             "줄어듦": bool(rep["result"]["after"] < rep["result"]["before"] * 0.85),
-            "인사말 남음": "안녕하세요" in text.replace(" ", ""),
+            "인사말 남음": "안녕하세" in text.replace(" ", ""),  # 받아쓰기가 안녕하세여로 적는 경우가 있어 앞부분만
             "다시 지워짐": "다시" not in text,
             "끊긴 문장 지워짐": text.count("오늘은") == 1,
             "다시 말한 문장 남음": "3가지" in text or "세 가지" in text,
