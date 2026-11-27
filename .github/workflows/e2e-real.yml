@@ -83,7 +83,7 @@ jobs:
 
   publish:
     needs: e2e
-    if: always()
+    if: ${{ always() && needs.e2e.result != 'skipped' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
