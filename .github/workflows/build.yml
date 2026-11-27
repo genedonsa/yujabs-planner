@@ -3,6 +3,7 @@ name: build
 on:
   push:
     branches: [main]
+    paths-ignore: ["docs/**"]   # 안내 문서만 고친 건 앱을 새로 만들 필요 없음
   workflow_dispatch:
 
 # 회원 컴퓨터에 따로 깔 것이 없도록, 필요한 것은 전부 앱 안에 넣는다.
