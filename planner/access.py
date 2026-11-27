@@ -15,11 +15,11 @@ import io
 import os
 import urllib.request
 
-from .net import ssl_context
+from . import net
 
 
 def urlopen(req, timeout: int = 15):
-    return urllib.request.urlopen(req, timeout=timeout, context=ssl_context())
+    return net.urlopen(req, timeout=timeout)
 
 SALT = "yujabs-planner-v1:"
 # 예: https://docs.google.com/spreadsheets/d/<시트ID>/export?format=csv&gid=0
@@ -45,14 +45,10 @@ LAST_ERROR = ""
 
 
 def _download(url: str) -> str:
-    """인증서 묶음(certifi)으로 먼저, 안 되면 컴퓨터 기본 인증서로 한 번 더."""
+    """컴퓨터 인증서 → 앱 인증서 → 파이썬 기본 순서로 시도(net.urlopen)."""
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (CornBot)"})
-    try:
-        with urlopen(req, timeout=15) as r:
-            return r.read().decode("utf-8-sig")
-    except Exception:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            return r.read().decode("utf-8-sig")
+    with urlopen(req, timeout=15) as r:
+        return r.read().decode("utf-8-sig")
 
 
 def _parse(text: str) -> set[str]:
