@@ -34,6 +34,7 @@ v0.6 · 2026-11-27 · 이 문서에서만 고치고, 완성되면 학원월드�
 - **인터넷:** 집이나 사무실 인터넷. 회사 보안 프로그램이 막으면 휴대폰 핫스팟으로 해 보세요.
 
 내 컴퓨터 확인하는 법:
+
 - 맥: 화면 왼쪽 위 사과 모양 → '이 Mac에 관하여'. 'macOS' 옆 숫자가 15 이상이면 돼요.
 - 윈도우: 시작 버튼 → 설정(톱니바퀴) → 시스템 → 정보. 'Windows 사양'에 10 또는 11, '시스템 종류'에 '64비트'가 보이면 돼요.
 
@@ -56,27 +57,27 @@ v0.6 · 2026-11-27 · 이 문서에서만 고치고, 완성되면 학원월드�
 
 ## 1. 설치하기 (맥, 1분)
 
-1. 키보드에서 ⌘(command) + 스페이스바를 눌러요. 가운데에 검색창이 떠요.
-2. '터미널'이라고 치고 Enter를 눌러요. 글자만 있는 창이 열려요. (터미널은 맥에 원래 들어 있어요.)
-3. 아래 한 줄을 복사해서 그 창에 붙여 넣고(⌘ + V) Enter를 눌러요.
+**1단계.** 키보드에서 ⌘(command) + 스페이스바를 눌러요. 가운데에 검색창이 떠요.
 
-   ```
-   curl -fsSL https://github.com/genedonsa/yujabs-planner/releases/latest/download/install.sh | bash
-   ```
+**2단계.** '터미널'이라고 치고 Enter를 눌러요. 글자만 있는 창이 열려요. (터미널은 맥에 원래 들어 있어요.)
 
-4. 1분쯤 기다리면 '설치 완료'가 나오고 콘봇이 열려요. 이 방법으로 설치하면 "확인되지 않은 개발자" 경고 창이 뜨지 않아요.
-5. 터미널 창은 닫아도 돼요. 다음부터는 '응용 프로그램' 폴더나 Launchpad에서 CornBot을 누르면 열려요.
+**3단계.** 아래 한 줄을 복사해서 그 창에 붙여 넣고(⌘ + V) Enter를 눌러요.
+
+`curl -fsSL https://github.com/genedonsa/yujabs-planner/releases/latest/download/install.sh | bash`
+
+**4단계.** 1분쯤 기다리면 '설치 완료'가 나오고 콘봇이 열려요. 이 방법으로 설치하면 "확인되지 않은 개발자" 경고 창이 뜨지 않아요.
+
+**5단계.** 터미널 창은 닫아도 돼요. 다음부터는 '응용 프로그램' 폴더나 Launchpad에서 CornBot을 누르면 열려요.
 
 ## 1. 설치하기 (윈도우, 1~2분)
 
-1. 키보드에서 윈도우 키를 누르고 'PowerShell'이라고 친 뒤 Enter를 눌러요. 파란(또는 검은) 창이 열려요. (PowerShell은 윈도우에 원래 들어 있어요. 관리자로 열 필요 없어요.)
-2. 아래 한 줄을 복사해서 그 창에 마우스 오른쪽 클릭으로 붙여 넣고 Enter를 눌러요.
+**1단계.** 키보드에서 윈도우 키를 누르고 'PowerShell'이라고 친 뒤 Enter를 눌러요. 파란(또는 검은) 창이 열려요. (PowerShell은 윈도우에 원래 들어 있어요. 관리자로 열 필요 없어요.)
 
-   ```
-   irm https://github.com/genedonsa/yujabs-planner/releases/latest/download/install.ps1 | iex
-   ```
+**2단계.** 아래 한 줄을 복사해서 그 창에 마우스 오른쪽 클릭으로 붙여 넣고 Enter를 눌러요.
 
-3. 1~2분 기다리면 콘봇이 열리고, 바탕화면에 'CornBot' 아이콘이 생겨요. 이 방법으로 설치하면 'Windows의 PC 보호' 파란 창이 뜨지 않아요.
+`irm https://github.com/genedonsa/yujabs-planner/releases/latest/download/install.ps1 | iex`
+
+**3단계.** 1~2분 기다리면 콘봇이 열리고, 바탕화면에 'CornBot' 아이콘이 생겨요. 이 방법으로 설치하면 'Windows의 PC 보호' 파란 창이 뜨지 않아요.
 
 ## 2. 처음 열기
 
@@ -93,9 +94,11 @@ v0.6 · 2026-11-27 · 이 문서에서만 고치고, 완성되면 학원월드�
 
 1. 회원 컴퓨터가 맥인지 윈도우인지, 버전이 '0. 준비할 것'의 조건에 맞는지 묻는다. macOS 15 미만이면 설치를 진행하지 말고 그 사실을 알린다.
 2. 내가 할 수 있는 일에 맞춰 진행한다.
-   - **회원 컴퓨터에서 명령을 직접 실행할 수 있다면:** '1. 설치하기'의 한 줄 명령을 그대로 실행한다. 맥은 터미널(bash), 윈도우는 PowerShell.
-   - **화면 클릭만 할 수 있다면:** 터미널에는 글자를 칠 수 없으니, 회원에게 '터미널 열기 → 한 줄 붙여 넣기 → Enter'만 직접 하도록 짧게 안내한다. 그 뒤 콘봇 창이 뜨는지 화면으로 확인한다.
-   - **회원 컴퓨터를 조작할 수 없다면 (ChatGPT·Claude 일반 대화):** 한 번에 한 단계만 말하고, 회원이 "됐어"라고 하면 다음 단계로 간다. 명령 한 줄은 복사하기 쉽게 따로 보여 준다.
+
+    - **회원 컴퓨터에서 명령을 직접 실행할 수 있다면:** '1. 설치하기'의 한 줄 명령을 그대로 실행한다. 맥은 터미널(bash), 윈도우는 PowerShell.
+    - **화면 클릭만 할 수 있다면:** 터미널에는 글자를 칠 수 없으니, 회원에게 '터미널 열기 → 한 줄 붙여 넣기 → Enter'만 직접 하도록 짧게 안내한다. 그 뒤 콘봇 창이 뜨는지 화면으로 확인한다.
+    - **회원 컴퓨터를 조작할 수 없다면 (ChatGPT·Claude 일반 대화):** 한 번에 한 단계만 말하고, 회원이 "됐어"라고 하면 다음 단계로 간다. 명령 한 줄은 복사하기 쉽게 따로 보여 준다.
+
 3. 성공 확인: 콘봇 창에 '이번 달 암호' 칸이 보이면 설치 성공이다. 맥 터미널에는 '설치 완료: …/CornBot.app'이 나온다.
 4. 암호: 학원월드 회원 게시판의 '이번 달 콘봇 암호'를 회원이 직접 넣게 한다. 암호를 추측하거나 다른 곳에서 찾지 않는다.
 5. 오류가 나면 오류 문구를 그대로 보여 달라고 하고, 아래 '설치가 잘 안 될 때'를 먼저 확인한다. 그래도 안 되면 '직접 설치하기'로 안내한다.
@@ -105,9 +108,11 @@ v0.6 · 2026-11-27 · 이 문서에서만 고치고, 완성되면 학원월드�
 ## 직접 설치하기 (한 줄 설치가 안 될 때만)
 
 1. 아래에서 내 컴퓨터에 맞는 파일을 눌러 받아요. 받은 파일은 '다운로드' 폴더에 들어가요.
-   - 맥(Apple 칩): https://github.com/genedonsa/yujabs-planner/releases/latest/download/CornBot-macOS.zip
-   - 맥(Intel): https://github.com/genedonsa/yujabs-planner/releases/latest/download/CornBot-macOS-Intel.zip
-   - 윈도우: https://github.com/genedonsa/yujabs-planner/releases/latest/download/CornBot-windows.zip
+
+    - 맥(Apple 칩): https://github.com/genedonsa/yujabs-planner/releases/latest/download/CornBot-macOS.zip
+    - 맥(Intel): https://github.com/genedonsa/yujabs-planner/releases/latest/download/CornBot-macOS-Intel.zip
+    - 윈도우: https://github.com/genedonsa/yujabs-planner/releases/latest/download/CornBot-windows.zip
+
 2. **맥:** 파일을 더블클릭해 압축을 풀고, CornBot을 '응용 프로그램' 폴더로 끌어 놓은 뒤 더블클릭해요. "Apple이 확인할 수 없다"는 경고가 뜨면 '완료'로 닫고, 사과 메뉴 → 시스템 설정 → 개인정보 보호 및 보안 → 아래쪽 "'CornBot'이(가) 차단되었습니다" 옆 '그래도 열기'를 누르고 맥 비밀번호를 넣어요. 다시 뜨는 창에서 '그래도 열기'를 눌러요. 한 번만 하면 돼요.
 3. **윈도우:** 파일을 오른쪽 클릭 → '모두 압축 풀기' → '압축 풀기'. 생긴 폴더 안의 CornBot.exe를 더블클릭해요. 'Windows의 PC 보호' 창이 뜨면 '추가 정보' → '실행'을 눌러요. 폴더 안의 다른 파일은 지우지 마세요.
 
