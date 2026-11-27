@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Callable
 
 from . import access, collect, net
-from .discover import keywords as auto_keywords
+from .discover import keywords as auto_keywords, shared_keywords
 from .surge import Video
 
 HOME = Path.home() / "유잡스 기획"
@@ -159,6 +159,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
 
     step("models")
     roles, channel_vids, titles = [], {}, list(me["titles"])
+    groups = [list(me["titles"])]
     for url in s.get("role_models", []):
         log(f"롤모델 채널 읽는 중: {url}")
         try:
@@ -171,8 +172,9 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
         roles.append(ch)
         channel_vids[ch["id"]] = (ch, vids)
         titles += [v.title for v in vids]
+        groups.append([v.title for v in vids])
 
-    auto = auto_keywords(titles)
+    auto = shared_keywords(groups)
     kws = merge_keywords(auto, s)
     role_ids = {r["id"] for r in roles}
     role_subs = [r["subs"] for r in roles if r.get("subs")]
@@ -184,6 +186,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     found_count: Counter = Counter()
     found_kw: dict[str, set] = {}
     found_by_format: dict[str, str] = {}
+    found_vids: set[str] = set()
     search_terms = [(k, None) for k in kws] + [(f, f) for f in formats]
     for term, fmt in search_terms:
         log(f"검색 중: {term}")
@@ -196,6 +199,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
             if not v.channel_id or v.channel_id in role_ids or v.is_short:
                 continue
             found_count[v.channel_id] += 1
+            found_vids.add(v.id)
             found_kw.setdefault(v.channel_id, set()).add(term)
             if fmt:
                 found_by_format[v.id] = fmt
@@ -244,6 +248,8 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
         for h in hits(ch, vids, baseline(vids, today, c["days"]), today, c):
             if h["id"] in shown or h["id"] in seen:
                 continue
+            if source == "키워드 검색" and h["id"] not in found_vids:
+                continue  # 검색으로만 알게 된 채널은 검색에 걸린 그 영상만 (채널의 다른 주제 영상은 뺌)
             seen.add(h["id"])
             h["source"] = source
             h["format"] = _tag_format(h, formats, found_by_format)
@@ -264,7 +270,15 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
 # ---------- 기획하기: 영상 1편 자료 ----------
 def plan_material(video: dict, story: str, s: dict) -> tuple[str, Path]:
     from .bundle import ts
-    d = collect.video_detail(video["url"], 40)
+    try:
+        d = collect.video_detail(video["url"], 40)
+        partial = ""
+    except Exception as e:  # 유튜브가 영상 페이지 읽기를 막는 경우: 아는 정보만으로 자료를 만든다
+        d = {"id": video.get("id"), "title": video.get("title"), "channel": video.get("channel"),
+             "duration": video.get("duration"), "views": video.get("views"),
+             "thumbnail": f"https://i.ytimg.com/vi/{video.get('id')}/hqdefault.jpg", "description": "",
+             "comments": [], "comment_count": 0, "transcript": []}
+        partial = f"(유튜브가 이번엔 영상 페이지를 읽지 못하게 막아서 설명란·댓글·자막을 못 가져왔어요: {str(e)[:80]})"
     me = json.loads((HOME / "me.json").read_text(encoding="utf-8")) if (HOME / "me.json").exists() else {}
     prompt = (net.BASE / "prompts" / "plan_prompt.md").read_text(encoding="utf-8")
     L = [prompt, "", "---", "", "# 기획 자료", "",
@@ -289,7 +303,9 @@ def plan_material(video: dict, story: str, s: dict) -> tuple[str, Path]:
     L += ["", "### 자막 (시간 포함)"]
     tr = d.get("transcript") or []
     if not tr:
-        L.append("(자막 없음 — 설명란·댓글로 분석하고 그 사실을 적을 것)")
+        L.append(partial or "(자막 없음 — 설명란·댓글로 분석하고 그 사실을 적을 것)")
+        if partial:
+            L.append("(원본 대사를 지어내지 말 것. 제목·썸네일·내 이야기로 기획하고, 원본 대사가 필요한 곳은 '원본 확인 필요'로 표시할 것)")
     L += [f"[{ts(x['start'])}] {x['text']}" for x in tr]
     text = "\n".join(L)
     folder = HOME / "기획" / f"{_today().isoformat()}_{video['id']}"
