@@ -230,7 +230,9 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
         # 같은 분야인지: 그 채널 영상 제목 2개 이상에 분야 말이나 키워드가 들어 있어야 한다
         terms = [t.lower() for t in ([anchor] if anchor else []) + kws + formats if t]
         on_topic = sum(1 for v in vids if any(t in v.title.lower() for t in terms)) >= 2
-        if cid in subs or (smaller and recent_long >= 1 and on_topic and cid not in removed_subs):
+        # 너무 작은 채널(구독자 1천 미만이거나 평소 조회수 1천 미만)은 참고가 어려워 뺀다
+        big_enough = (ch.get("subs") or 0) >= 1000 and (ch["avg"] or 0) >= 1000
+        if cid in subs or (smaller and big_enough and recent_long >= 1 and on_topic and cid not in removed_subs):
             bench.append(ch)
     if not subs:  # 처음엔 겹친 키워드가 많은 순으로 8곳을 자동으로 구독 리스트에
         for ch in sorted(bench, key=lambda x: -len(x.get("keywords", [])))[:8]:

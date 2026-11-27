@@ -53,7 +53,7 @@ def _to_video(e: dict, channel_id: str = "", channel_name: str = "") -> Video:
     )
 
 
-def channel_videos(channel_url: str, limit: int = 60) -> tuple[dict, list[Video]]:
+def channel_videos(channel_url: str, limit: int = 60, original_titles: bool = True) -> tuple[dict, list[Video]]:
     """채널 '동영상' 탭 최근 영상. approximate_date로 목록에서도 업로드일을 받는다."""
     url = channel_url.rstrip("/")
     if not url.endswith("/videos"):
@@ -71,7 +71,30 @@ def channel_videos(channel_url: str, limit: int = 60) -> tuple[dict, list[Video]
           "subs": info.get("channel_follower_count"), "desc": (info.get("description") or "")[:300],
           "avatar": avatar}
     vids = [_to_video(e, ch["id"], ch["name"]) for e in info.get("entries") or [] if e]
+    if original_titles:
+        _korean_titles(url, limit, ch, vids)
     return ch, vids
+
+
+def _korean_titles(url: str, limit: int, ch: dict, vids: list[Video]) -> None:
+    """유튜브는 기본(영어)으로 물으면 채널이 달아 둔 '영어 번역 제목'을 준다.
+    한국어로 한 번 더 물어 원래 제목·채널 이름으로 바꾼다. (날짜는 한국어로 물으면 못 읽어서 첫 요청 것을 쓴다)"""
+    opts = {**BASE_OPTS, "extract_flat": "in_playlist", "playlistend": limit,
+            "extractor_args": {"youtube": {"lang": ["ko"]}}}
+    try:
+        with YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except Exception:
+        return  # 실패해도 영어 제목으로 계속
+    ko = {e.get("id"): e.get("title") for e in info.get("entries") or [] if e and e.get("title")}
+    for v in vids:
+        if ko.get(v.id):
+            v.title = ko[v.id]
+    name = (info.get("channel") or info.get("title") or "").replace(" - Videos", "").replace(" - 동영상", "")
+    if name:
+        ch["name"] = name
+        for v in vids:
+            v.channel_name = name
 
 
 # 유튜브 검색 '업로드 날짜' 필터 (유튜브가 최신순 정렬을 없애서 yt-dlp의 ytsearchdate도 사라졌다)
