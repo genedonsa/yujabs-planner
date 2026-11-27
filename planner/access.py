@@ -37,22 +37,53 @@ def fingerprint(password: str) -> str:
     return hashlib.sha256((SALT + password.strip()).encode("utf-8")).hexdigest()
 
 
+SHEET_ID = "1j6b4rW6bva9s5KMJ9fZceuME0oqxjp4HSpMtn1osjn8"
+FALLBACK_URLS = [
+    f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&gid=0",
+]
+LAST_ERROR = ""
+
+
+def _download(url: str) -> str:
+    """인증서 묶음(certifi)으로 먼저, 안 되면 컴퓨터 기본 인증서로 한 번 더."""
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (CornBot)"})
+    try:
+        with urlopen(req, timeout=15) as r:
+            return r.read().decode("utf-8-sig")
+    except Exception:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return r.read().decode("utf-8-sig")
+
+
+def _parse(text: str) -> set[str]:
+    rows = list(csv.reader(io.StringIO(text)))[1:]
+    return {row[0].strip().strip('"').lower() for row in rows if row and len(row[0].strip().strip('"')) == 64}
+
+
 def current_fingerprints(url: str = "") -> set[str]:
     """시트 A열 2행부터의 지문 전부. 여러 줄이면 그중 하나만 맞아도 통과(한/영 입력 실수 대비)."""
+    global LAST_ERROR
     url = url or ACCESS_URL
     if not url:
         raise AccessError("앱 설정에 암호 확인 주소가 없습니다. 운영자에게 문의해 주세요.")
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "yujabs-planner"})
-        with urlopen(req, timeout=15) as r:
-            text = r.read().decode("utf-8-sig")
-    except Exception as e:
-        raise AccessError("암호를 확인하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.") from e
-    rows = list(csv.reader(io.StringIO(text)))[1:]
-    fps = {row[0].strip().lower() for row in rows if row and len(row[0].strip()) == 64}
-    if not fps:
-        raise AccessError("암호 확인 시트의 형식이 올바르지 않습니다. 운영자에게 문의해 주세요.")
-    return fps
+    errors = []
+    got_text = False
+    for u in [url] + [f for f in FALLBACK_URLS if f != url]:
+        try:
+            text = _download(u)
+        except Exception as e:
+            errors.append(f"{type(e).__name__}: {e}"[:160])
+            continue
+        got_text = True
+        fps = _parse(text)
+        if fps:
+            LAST_ERROR = ""
+            return fps
+        errors.append("시트 내용 형식 다름: " + text[:80].replace("\n", " "))
+    LAST_ERROR = " | ".join(errors)
+    if got_text:
+        raise AccessError("암호 확인 시트의 형식이 올바르지 않습니다. 운영자에게 문의해 주세요. (자세히: " + LAST_ERROR[:120] + ")")
+    raise AccessError("암호를 확인하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요. (자세히: " + LAST_ERROR[:120] + ")")
 
 
 def current_fingerprint(url: str = "") -> str:
