@@ -69,7 +69,12 @@ def transcribe(audio: Path, model_size: str, log: Callable[[str], None]) -> list
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     log("음성 받아쓰기 모델 준비 중… (처음 한 번은 몇 분 걸려요)")
     model = WhisperModel(model_size, device="cpu", compute_type="int8", download_root=str(MODEL_DIR))
-    segs, info = model.transcribe(str(audio), language="ko", word_timestamps=True, vad_filter=False,
+    # 소리 파일은 직접 읽어 넘긴다(받아쓰기 라이브러리의 소리 읽기 부분이 PyAV 새 버전과 맞지 않음)
+    import wave
+    import numpy as np
+    with wave.open(str(audio), "rb") as wf:
+        pcm = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16).astype(np.float32) / 32768.0
+    segs, info = model.transcribe(pcm, language="ko", word_timestamps=True, vad_filter=False,
                                   condition_on_previous_text=False)
     words: list[W] = []
     for i, sg in enumerate(segs):
@@ -247,7 +252,7 @@ def make(src_folder: str, style_name: str = "유잡스 기본", model_size: str 
               "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-c:a", "aac", "-b:a", "192k", str(joined)])
     total = _duration(joined)
     wav = work / "voice.wav"
-    _run([ff, "-y", "-i", str(joined), "-vn", "-ac", "1", "-ar", "16000", str(wav)])
+    _run([ff, "-y", "-i", str(joined), "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", str(wav)])
 
     step("stt")
     words = transcribe(wav, model_size, log)
