@@ -6,11 +6,14 @@
 <title>콘봇</title>
 <style>
 /* 콘봇 v0.2 — 시안(claude.ai 아티팩트 '콘봇 앱 화면' v7~8)과 같은 디자인 */
-@font-face{font-family:"BHS";src:url("../assets/BlackHanSans-Regular.ttf") format("truetype");font-display:swap}
+/* 글꼴은 반드시 ui 폴더 안에 둔다 (앱 창은 ui 폴더 밖 파일을 못 읽음) */
+@font-face{font-family:"Jua";src:url("fonts/Jua-Regular.ttf") format("truetype");font-display:block}
+@font-face{font-family:"BHS";src:url("fonts/BlackHanSans-Regular.ttf") format("truetype");font-display:block}
 :root{
   --paper:#F9F8F7; --panel:#FFFFFF; --ink:#2B2927; --muted:#7A736A; --line:#E7E0D5; --soft:#F3EEE6;
   --yellow:#FCC956; --yellow-soft:#FFF4DA; --ok:#2F7A4B; --err:#B8322A; --usink:#8A5A00;
-  --display:"BHS","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --display:"Jua","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --thumb:"BHS","Apple SD Gothic Neo",sans-serif;
   --font:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
 }
 *{box-sizing:border-box}
@@ -102,7 +105,7 @@ label{font-weight:800;font-size:14px;display:block}
 .card{display:flex;flex-direction:column;gap:6px;min-width:0}
 .tw{position:relative}
 .thumb{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:6px;display:block;background:var(--soft)}
-.ratio{position:absolute;left:8px;top:8px;background:var(--yellow);border:2px solid var(--ink);border-radius:5px;padding:1px 7px 2px;font-family:var(--display);font-size:17px;line-height:1.2;box-shadow:2px 2px 0 var(--ink)}
+.ratio{position:absolute;left:8px;top:8px;background:var(--yellow);border:2px solid var(--ink);border-radius:5px;padding:1px 7px 2px;font-family:var(--thumb);font-size:17px;line-height:1.2;box-shadow:2px 2px 0 var(--ink)}
 .ratio small{font-family:var(--font);font-size:10.5px;font-weight:800;margin-right:3px}
 .hov{position:absolute;inset:0;display:grid;place-items:center;background:rgba(43,41,39,.55);border-radius:6px;opacity:0;transition:opacity .15s}
 .card:hover .hov,.card:focus-within .hov{opacity:1}
@@ -139,12 +142,18 @@ label{font-weight:800;font-size:14px;display:block}
 /* 설정 */
 .setg{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .setg h3{font-size:15px;padding:12px 16px;background:var(--soft)}
-.setr{display:grid;grid-template-columns:180px minmax(0,1fr);gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--line);font-size:14px}
+.setr{display:grid;grid-template-columns:190px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--line);font-size:14px}
+.setr>span{color:var(--muted)}
+.setlist{display:flex;flex-direction:column;gap:18px}
 /* 업데이트 */
 .modal{position:fixed;inset:0;background:rgba(43,41,39,.55);display:grid;place-items:center;z-index:20;padding:16px}
 .modal .panel{max-width:480px;width:100%;display:flex;flex-direction:column;gap:12px}
 .notes{white-space:pre-wrap;font-size:14px;background:var(--soft);border-radius:6px;padding:10px 12px;max-height:240px;overflow:auto}
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;z-index:30}
+.mascot{width:120px;display:block;margin:0 auto}
+.empty-box{max-width:520px;margin:30px auto 0;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
+.empty-box img{width:130px}
+.prog .mw{width:140px;float:right;margin:-8px -6px 0 12px}
+.toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;z-index:30}
 </style>
 </head>
 <body>
@@ -161,7 +170,7 @@ label{font-weight:800;font-size:14px;display:block}
 <main>
 <!-- 암호 -->
 <section id="s-lock" class="screen" hidden>
-  <div class="lock"><div class="panel">
+  <div class="lock"><img class="mascot" src="cony_guide.webp" alt="콘봇 캐릭터 콘이"><div class="panel">
     <h1 class="disp" style="font-size:30px">이번 달 암호</h1>
     <p class="hint">학원월드 유잡스 커뮤니티 회원 게시판의 '이번 달 암호' 글에서 확인할 수 있어요. 암호는 매달 바뀌어요.</p>
     <input type="password" id="code" aria-label="이번 달 암호" style="font-size:22px;text-align:center;letter-spacing:.12em">
@@ -173,7 +182,7 @@ label{font-weight:800;font-size:14px;display:block}
 <!-- 입력 (처음 / 설정에서 고치기) -->
 <section id="s-setup" class="screen" hidden>
   <div class="setup panel stack">
-    <div><h1 class="disp" style="font-size:30px">나와 롤모델을 알려 주세요</h1>
+    <div><div class="row" style="flex-wrap:nowrap;gap:14px"><img src="cony_info.png" alt="" style="width:64px;flex:none"><h1 class="disp" style="font-size:30px">나와 롤모델을 알려 주세요</h1></div>
       <p class="hint">이걸로 내 경험을 익히고, 롤모델과 비슷한 작은 벤치마킹 채널을 찾고, 내가 할 포맷에서 터진 영상을 골라요. 모두 나중에 설정에서 바꿀 수 있어요.</p></div>
     <div class="stack" style="gap:6px"><label for="myCh">내 채널</label><input type="text" id="myCh" placeholder="https://www.youtube.com/@내채널"></div>
     <div class="stack" style="gap:8px"><label>롤모델 채널 <span class="hint">많이 넣을수록 잘 찾아요</span></label>
@@ -198,6 +207,7 @@ label{font-weight:800;font-size:14px;display:block}
 <!-- 분석 중 -->
 <section id="s-prog" class="screen" hidden>
   <div class="prog panel">
+    <img class="mw" src="cony_work.webp" alt="일하는 콘이">
     <h2 class="disp" style="font-size:26px">분석하는 중이에요</h2>
     <p class="hint">처음엔 5분 안팎 걸려요. 창을 닫지 말고 기다려 주세요.</p>
     <ol class="plist" id="plist"></ol>
@@ -211,18 +221,20 @@ label{font-weight:800;font-size:14px;display:block}
 <section id="s-bench" class="screen stack" hidden>
   <div class="lhead"><div><p class="hint">롤모델의 영상·키워드로 찾았어요</p><h1>벤치마킹 채널 <em id="benchN">0곳</em></h1></div>
     <p class="hint">구독 리스트의 채널은 분석할 때마다 확인해요</p></div>
+  <div id="benchEmpty"></div><div id="benchBody" class="stack">
   <div class="filters"><div class="fgroup"><span>롤모델 키워드 <small class="hint">자동으로 뽑았어요 · 빼거나 더해도 돼요 (다음 분석부터 반영)</small></span><div class="tagedit" id="kwEdit"></div></div></div>
   <h3 class="sech">내가 넣은 롤모델</h3><div class="ylist" id="rlist"></div>
   <h3 class="sech">콘봇이 찾은 작은 벤치마킹 채널 <span class="hint">롤모델과 키워드가 겹치고 더 작은 채널</span></h3><div class="ylist" id="blist"></div>
   <div class="row"><input type="text" id="addSub" placeholder="직접 추가할 채널 주소" style="max-width:420px"><button class="btn" id="addSubBtn">＋ 추가</button><span class="err" id="addSubErr" hidden></span></div>
   <div class="row" style="justify-content:flex-end"><button class="btn" id="rerun">바꾼 내용으로 다시 찾기</button><button class="btn go" data-nav="refs">터진 영상 보기</button></div>
+  </div>
 </section>
 
 <!-- 레퍼런스 -->
 <section id="s-refs" class="screen stack" hidden>
   <div class="lhead"><div><p class="hint" id="refCrit"></p><h1>내 포맷에서 터진 영상 <em id="refN">0편</em></h1></div>
     <div class="row"><p class="hint">썸네일에 마우스를 올리고 <b>기획하기</b>를 누르세요</p><button class="btn sm" id="rerun2">다시 찾기</button></div></div>
-  <div class="filters"><div class="fgroup" id="ftabs"></div></div>
+  <div class="filters" id="refFilters"><div class="fgroup" id="ftabs"></div></div>
   <div id="fmts"></div>
 </section>
 
@@ -237,17 +249,19 @@ label{font-weight:800;font-size:14px;display:block}
 <!-- 설정 -->
 <section id="s-settings" class="screen stack" hidden>
   <div class="lhead"><div><p class="hint">콘봇이 자동으로 정한 것도 전부 여기서 바꿀 수 있어요</p><h1>설정</h1></div><button class="btn" id="resetCrit">찾는 기준을 유잡스 기본값으로</button></div>
-  <div class="setg"><h3>나·롤모델·경험·포맷</h3>
-    <div class="setr"><b>입력 화면</b><div class="row"><span class="hint">내 채널, 롤모델, 내 경험·소개, 링크, 포맷</span><button class="btn sm" id="editSetup">고치기</button></div></div></div>
-  <div class="setg"><h3>찾는 기준</h3>
-    <div class="setr"><b>기간</b><select id="cDays"><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select></div>
-    <div class="setr"><b>최소 조회수</b><select id="cMin"><option value="1000">1천 회</option><option value="5000">5천 회</option><option value="10000">1만 회</option><option value="50000">5만 회</option></select></div>
-    <div class="setr"><b>평소보다 몇 배</b><select id="cRatio"><option value="2">2배</option><option value="3">3배</option><option value="5">5배</option></select></div></div>
+  <div class="setlist">
+  <div class="setg"><h3>나</h3>
+    <div class="setr"><b>내 채널·롤모델·경험·링크·포맷</b><span>처음에 넣은 입력을 고쳐요</span><button class="btn sm" id="editSetup">고치기</button></div></div>
+  <div class="setg"><h3>찾는 기준 <small class="hint">유잡스 기본값: 7일 · 1만 회 · 3배</small></h3>
+    <div class="setr"><b>기간</b><span>이 기간 안에 올라온 영상만</span><select id="cDays"><option value="7">최근 7일</option><option value="14">최근 14일</option><option value="30">최근 30일</option></select></div>
+    <div class="setr"><b>최소 조회수</b><span>이보다 적으면 빼요</span><select id="cMin"><option value="1000">1천 회</option><option value="5000">5천 회</option><option value="10000">1만 회</option><option value="50000">5만 회</option></select></div>
+    <div class="setr"><b>평소보다 몇 배</b><span>그 채널 최근 3개월 롱폼 평균 대비</span><select id="cRatio"><option value="2">2배</option><option value="3">3배</option><option value="5">5배</option></select></div></div>
   <div class="setg"><h3>키워드·구독 리스트</h3>
-    <div class="setr"><b>키워드와 채널</b><div class="row"><span class="hint">벤치마킹 채널 화면에서 고쳐요</span><button class="btn sm" data-nav="bench">열기</button></div></div></div>
+    <div class="setr"><b>키워드와 채널</b><span>벤치마킹 채널 화면에서 빼고 더해요</span><button class="btn sm" data-nav="bench">열기</button></div></div>
   <div class="setg"><h3>저장 위치·버전</h3>
-    <div class="setr"><b>자료 폴더</b><div class="row"><span class="hint">홈 폴더의 '유잡스 기획'</span><button class="btn sm" id="openHome">열기</button></div></div>
-    <div class="setr"><b>버전</b><div class="row"><span class="hint" id="verLine"></span><button class="btn sm" id="checkUpd">업데이트 확인</button></div></div></div>
+    <div class="setr"><b>자료 폴더</b><span>홈 폴더의 '유잡스 기획'</span><button class="btn sm" id="openHome">열기</button></div>
+    <div class="setr"><b>버전</b><span id="verLine"></span><button class="btn sm" id="checkUpd">업데이트 확인</button></div></div>
+  </div>
 </section>
 </main>
 
@@ -271,7 +285,7 @@ function toast(t){$("toast").textContent=t;$("toast").hidden=false;clearTimeout(
 function show(id){document.querySelectorAll(".screen").forEach(s=>s.hidden=s.id!=="s-"+id);
   document.querySelectorAll(".nav").forEach(n=>n.setAttribute("aria-current",n.dataset.nav===id));window.scrollTo(0,0);}
 function navOn(on){document.querySelectorAll(".nav").forEach(n=>n.hidden=!on);$("monthBadge").hidden=!on;}
-document.addEventListener("click",e=>{const b=e.target.closest("[data-nav]");if(!b)return;const t=b.dataset.nav;
+document.addEventListener("click",e=>{if(e.target.closest("[data-start]")){fillSetup();show("setup");return;}const b=e.target.closest("[data-nav]");if(!b)return;const t=b.dataset.nav;
   if(t==="refs")renderRefs(); if(t==="bench")renderBench(); if(t==="plans")openPlans(); if(t==="settings")renderSettings(); show(t==="plans"?"plan":t);});
 
 /* ---------- 시작 ---------- */
@@ -283,7 +297,7 @@ async function boot(){
     else if(state.had_password){$("codeErr").textContent="이번 달 암호가 바뀌었어요. 유잡스 커뮤니티 회원 게시판에서 새 암호를 확인해 주세요.";$("codeErr").hidden=false;} return;}
   navOn(true);
   if(!state.settings.my_channel){fillSetup();show("setup");return;}
-  if(R){renderRefs();show("refs");} else {fillSetup();show("setup");}
+  if(R){renderRefs();show("refs");} else {fillSetup();show("setup");toast("내 채널과 롤모델을 확인하고 분석을 시작해 주세요");}
 }
 $("codeBtn").onclick=async()=>{const r=await api.check_code($("code").value);
   if(!r.ok){$("codeErr").textContent=r.error;$("codeErr").hidden=false;return;} boot();};
@@ -335,7 +349,7 @@ function chRow(c,role){const av=c.avatar?`<img class="yav" src="${esc(c.avatar)}
     ${(c.keywords||[]).length?`<span class="kw">${esc(c.keywords.join(" · "))}</span>`:""}
     ${c.desc?`<span class="ydesc">${esc(c.desc)}</span>`:""}</div>
     ${role?'<button class="ysub on" disabled>구독 리스트</button>':`<button class="ysub ${c.subscribed?"on":""}" data-cid="${esc(c.id)}">${c.subscribed?"구독 리스트":"구독"}</button>`}</div>`;}
-function renderBench(){if(!R){$("blist").innerHTML='<p class="empty">아직 분석 전이에요.</p>';return;}
+function renderBench(){$("benchBody").hidden=!R;$("benchEmpty").hidden=!!R;if(!R){$("benchEmpty").innerHTML=`<div class="empty-box"><img src="cony_info.png" alt=""><h2 class="disp" style="font-size:24px">아직 분석 전이에요</h2><p class="hint">내 채널과 롤모델을 넣고 분석을 시작하면, 벤치마킹 채널과 터진 영상이 여기에 나와요.</p><button class="btn go" data-start>분석 시작하러 가기</button></div>`;return;}
   kws=[...R.keywords]; tagEditor($("kwEdit"),kws,"＋ 키워드 입력 후 Enter",()=>api.set_keywords(kws,R.auto_keywords));
   $("rlist").innerHTML=R.roles.map(c=>chRow(c,true)).join("")||'<p class="empty">롤모델 채널을 읽지 못했어요.</p>';
   $("blist").innerHTML=R.bench.map(c=>chRow(c,false)).join("")||'<p class="empty">아직 찾은 채널이 없어요. 키워드를 더하거나 채널을 직접 추가해 보세요.</p>';
@@ -345,7 +359,7 @@ $("addSubBtn").onclick=async()=>{const u=$("addSub").value.trim();if(!u)return;$
   if(!r.ok){$("addSubErr").textContent=r.error;$("addSubErr").hidden=false;return;}$("addSubErr").hidden=true;$("addSub").value="";R.bench.unshift(r.channel);renderBench();toast("구독 리스트에 추가했어요");};
 
 /* ---------- 레퍼런스 ---------- */
-function renderRefs(){if(!R){$("fmts").innerHTML='<p class="empty">아직 분석 전이에요. 설정에서 입력을 마치고 분석을 시작해 주세요.</p>';return;}
+function renderRefs(){$("refFilters").hidden=!R;$("rerun2").hidden=!R;if(!R){$("refN").textContent="0편";$("refCrit").textContent="";$("fmts").innerHTML=`<div class="empty-box"><img src="cony_info.png" alt=""><h2 class="disp" style="font-size:24px">아직 분석 전이에요</h2><p class="hint">내 채널과 롤모델을 넣고 분석을 시작하면, 벤치마킹 채널과 터진 영상이 여기에 나와요.</p><button class="btn go" data-start>분석 시작하러 가기</button></div>`;return;}
   const my=(state.settings.formats||[]); const c=R.criteria;
   $("refCrit").textContent=`${R.date} · 최근 ${c.days}일 · 조회 ${fmtN(c.min_views)}+ · 평소 ${c.ratio}배+ · 구독자 무관`;
   const groups=my.map(f=>({t:f,items:R.refs.filter(r=>r.format===f)}));
@@ -373,7 +387,7 @@ async function openPlans(){plans=await api.list_plans();if(!curPlan&&plans.lengt
 function startPlan(v){curPlan={folder:"",video:v,plan:""};plans=[curPlan,...plans.filter(p=>p.video.id!==v.id)];renderPlan();show("plan");}
 function renderSide(){$("planSide").innerHTML='<span class="hint" style="padding:0 8px;font-weight:800">내 기획안</span>'+(plans.map((p,i)=>`<button aria-current="${p===curPlan}" data-pi="${i}"><img src="${esc(p.video.thumb)}" alt=""><span>${esc(p.video.title)}</span></button>`).join("")||'<p class="hint" style="padding:8px">아직 없어요</p>');
   document.querySelectorAll("[data-pi]").forEach(b=>b.onclick=()=>{curPlan=plans[+b.dataset.pi];renderPlan();});}
-function renderPlan(){renderSide();const P=curPlan;if(!P){$("planBody").innerHTML='<p class="empty">레퍼런스에서 기획하기를 눌러 주세요.</p>';return;}const v=P.video;
+function renderPlan(){renderSide();const P=curPlan;if(!P){$("planBody").innerHTML='<div class="empty-box"><img src="cony_info.png" alt=""><h2 class="disp" style="font-size:24px">아직 기획안이 없어요</h2><p class="hint">레퍼런스 화면에서 썸네일에 마우스를 올리고 기획하기를 눌러 주세요.</p><button class="btn go" data-nav="refs">레퍼런스 보러 가기</button></div>';return;}const v=P.video;
   const head=`<div class="row" style="align-items:start;flex-wrap:nowrap;gap:16px"><img src="${esc(v.thumb)}" alt="" style="width:220px;border-radius:6px;flex:none">
     <div class="stack" style="gap:4px"><b style="font-size:17px;line-height:1.4">${esc(v.title)}</b><span class="hint">${esc(v.channel)} · 조회 ${fmtN(v.views)} · 평소의 ${v.ratio}배 · ${esc(v.format||"포맷 미정")}</span>
     <div class="row"><button class="btn sm" data-u="${esc(v.url)}">유튜브에서 보기</button>${P.folder?`<button class="btn sm" data-f="${esc(P.folder)}">자료 폴더</button>`:""}</div></div></div>`;
