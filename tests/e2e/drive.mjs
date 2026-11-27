@@ -1,10 +1,10 @@
 // 실사용 점검: 회원처럼 화면을 누르며 끝까지 간다. 실제 유튜브 데이터. 사파리 엔진(webkit).
-import { webkit } from 'playwright';
+import pw from 'playwright';
 import fs from 'fs';
 const OUT = 'e2e_out'; fs.mkdirSync(OUT, { recursive: true });
 const rep = { steps: [], errors: [], badRequests: [] };
 const t0 = Date.now(); const T = () => Math.round((Date.now() - t0) / 1000);
-const b = await webkit.launch(); const p = await b.newPage({ viewport: { width: 1200, height: 820 } });
+const b = await pw[process.env.BROWSER || 'webkit'].launch(); const p = await b.newPage({ viewport: { width: 1200, height: 820 } });
 p.on('pageerror', e => rep.errors.push('JS ' + e.message));
 p.on('response', r => { if (r.status() >= 400 && !r.url().includes('ytimg')) rep.badRequests.push(r.status() + ' ' + r.url()); });
 await p.addInitScript(() => {
@@ -17,12 +17,13 @@ const shot = async (n) => { await p.screenshot({ path: `${OUT}/${n}.png`, fullPa
 const step = async (n, fn) => { try { await fn(); } catch (e) { rep.errors.push(n + ': ' + e.message.split('\n')[0]); await shot('ERR_' + n); } };
 for (let i = 0; i < 30; i++) { try { await p.goto('http://127.0.0.1:8765/index.html'); break; } catch (e) { rep.errors.push('goto ' + i + ': ' + e.message.split('\n')[0]); await new Promise(r => setTimeout(r, 2000)); } } await p.waitForTimeout(1500); await shot('01_start');
 await step('setup', async () => {
-  const KO = (process.env.PERSONA || 'cook') === 'cook';
+  const PER = process.env.PERSONA || 'cook'; const KO = PER === 'cook';
   const P = KO ? { me: 'https://www.youtube.com/@Tooktak', models: ['https://www.youtube.com/@momstaste', 'https://www.youtube.com/@Yangjanggeumjubu', 'https://www.youtube.com/@심방골주부', 'https://www.youtube.com/@오늘식탁'],
       intro: '직장 다니며 퇴근 후 20분 안에 만드는 집밥을 3년째 기록하고 있다. 자취생·맞벌이 부부를 위한 간단 반찬 레시피를 올린다.', aud: '바쁜 30~40대 맞벌이 / 반찬 레시피 전자책', fmts: ['집밥 레시피', '반찬 만들기'] }
     : { me: 'https://www.youtube.com/@유튜브-잡스', models: ['https://www.youtube.com/@ThinkMediaPodcast', 'https://www.youtube.com/@vidIQ', 'https://www.youtube.com/@ColinandSamir', 'https://www.youtube.com/@DanHenry'],
       intro: '회사 다니며 유튜브를 시작해 6개월 동안 수익 0원이었다. 사장님·창업가 인터뷰 채널을 30만 규모로 운영했다. 지금은 유튜브 운영 대행·컨설팅을 하고 유료 커뮤니티에서 강의를 판다.', aud: '유튜브로 지식 상품을 팔고 싶은 30~50대 / 유튜브 운영 강의', fmts: ['해외 유튜브 성공 사례 가져오기', '유튜브 수익화'] };
-  rep.persona = KO ? 'cook' : 'youtube';
+  if (PER === 'self') { P.models = [P.me]; }  // 롤모델 칸에도 내 채널을 넣어 본다
+  rep.persona = PER;
   await p.fill('#myCh', P.me);
   const models = P.models;
   for (let i = 0; i < models.length; i++) { let ins = await p.$$('#models input'); if (!ins[i]) { await p.click('#addModel'); ins = await p.$$('#models input'); } await ins[i].fill(models[i]); }
@@ -58,6 +59,40 @@ await step('plan', async () => {
     rep.experienceLines = (c.split('## 내 경험 노트')[1] || '').split('##')[0].trim().split('\n').slice(0, 12); }
   await p.fill('#paste', '# 점검용 기획안\n\n## 대본 (그대로 읽는 용)\n### 훅 · 0:00\n점검용 문장입니다. **내 이야기 문장**\n\n| 항목 | 내용 |\n|---|---|\n| 포맷 | 점검 |\n');
   await p.click('#savePlan'); await p.waitForTimeout(1500); await shot('09_plan_saved');
+});
+await step('weekly', async () => {
+  const ids = await p.evaluate(() => window.pywebview.api.sample_ids()); rep.weeklyIds = ids;
+  if (!ids.length) { rep.errors.push('주간 게시글 점검용 영상이 없음'); return; }
+  await p.click('.nav[data-nav="weekly"]'); await p.waitForTimeout(800); await shot('12_weekly_empty');
+  const html = '<h2>11월 4주차 주간 급상승 영상</h2>' + ids.map((u, i) => `<p>${i + 1}. 점검채널 — 평소의 ${(4.5 - i).toFixed(1)}배</p><a href="${u}"><img src="https://i.ytimg.com/vi/${u.slice(-11)}/hqdefault.jpg"></a><p>영상 요약: 점검 요약 ${i + 1}</p><p>왜 터졌나: 제목에 결과를 먼저 보여 줌</p><p>시청자가 얻은 가치: 따라 할 순서</p>`).join('');
+  await p.evaluate((h) => { const dt = new DataTransfer(); dt.setData('text/html', h); dt.setData('text/plain', 'x'); document.getElementById('wPaste').dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); }, html);
+  for (let i = 0; i < 90; i++) { await p.waitForTimeout(1000); if ((await p.$$('#wGrid .card')).length || await p.isVisible('#wErr')) break; }
+  await p.waitForTimeout(1500); await shot('13_weekly_cards');
+  rep.weekly = await p.$$eval('#wGrid .card', e => e.map(x => x.innerText.replace(/\n/g, ' | ').slice(0, 200)));
+  if (await p.isVisible('#wErr')) { rep.errors.push('주간 게시글: ' + await p.textContent('#wErr')); return; }
+  await p.hover('#wGrid .card .tw'); await p.click('[data-wplan="0"]'); await p.waitForTimeout(1200);
+  await p.fill('#story', '나도 회사 다니며 유튜브를 시작해 6개월 동안 수익이 0원이었다. 조회수보다 내 상품을 살 사람을 모으는 게 중요하다는 걸 늦게 알았다.');
+  try { fs.unlinkSync(`${OUT}/copied.md`); } catch (e) {}
+  await p.click('#mkMat'); for (let i = 0; i < 120; i++) { await p.waitForTimeout(1000); const m = await p.textContent('#matMsg'); if (m && !m.includes('가져오는 중')) break; }
+  rep.weeklyMaterialMsg = await p.textContent('#matMsg'); await shot('14_weekly_plan');
+  if (fs.existsSync(`${OUT}/copied.md`)) { const c = fs.readFileSync(`${OUT}/copied.md`, 'utf8'); fs.copyFileSync(`${OUT}/copied.md`, `${OUT}/copied_weekly.md`);
+    rep.weeklyMaterialHas = { 게시글분석: c.includes('학원월드 주간 게시글 분석'), 내이야기: c.includes('수익이 0원'), 자막: c.includes('### 자막') }; }
+  await p.fill('#paste', '# 주간 게시글 점검 기획안\n\n## 대본\n### 훅 · 0:00\n저도 처음 6개월은 수익이 0원이었어요. 이 문장은 점검용입니다.');
+  await p.click('#savePlan'); await p.waitForTimeout(1200); await shot('15_weekly_plan_saved');
+});
+await step('video', async () => {
+  await p.click('.nav[data-nav="video"]'); await p.waitForTimeout(800); await p.click('#vPick'); await p.waitForTimeout(400); await p.click('#vGo'); await p.waitForTimeout(3000); await shot('16_video_running');
+  for (let i = 0; i < 1800; i++) { await p.waitForTimeout(1000); if (await p.isVisible('#vDone') || await p.isVisible('#vErr')) break; }
+  rep.videoSeconds = T(); if (await p.isVisible('#vErr')) { rep.errors.push('영상: ' + await p.textContent('#vErr')); await shot('ERR_video'); return; }
+  rep.videoSum = await p.textContent('#vSum'); await shot('17_video_done');
+  await p.click('#vEditBtn'); await p.waitForTimeout(800);
+  const n = (await p.$$('#vLines li')).length; rep.videoLines = await p.$$eval('#vLines input[data-i]:not([data-k])', e => e.map(x => x.value));
+  await p.click('[data-deco="0"]'); await p.fill('#vLines input[data-k="chapter"][data-i="0"]', '인사');
+  const k = Math.min(2, n - 1); await p.click(`[data-deco="${k}"]`); await p.fill(`#vLines input[data-k="emph"][data-i="${k}"]`, '수익화 3가지');
+  if (n > 3) await p.click(`[data-drop="${n - 1}"]`);
+  await shot('18_video_edit'); await p.click('#vRe');
+  for (let i = 0; i < 900; i++) { await p.waitForTimeout(1000); if ((await p.isVisible('#vDone') && !(await p.isVisible('#vRun'))) || await p.isVisible('#vErr')) break; }
+  await p.waitForTimeout(1000); await shot('19_video_redone'); rep.videoSum2 = await p.textContent('#vSum');
 });
 await step('settings', async () => { await p.click('.nav[data-nav="settings"]'); await p.waitForTimeout(800); await shot('10_settings'); });
 await step('plans', async () => { await p.click('.nav[data-nav="plans"]'); await p.waitForTimeout(1000); await shot('11_plans'); });
