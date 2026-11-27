@@ -35,9 +35,11 @@ jobs:
           HOME_OVERRIDE: e2e_home
         run: |
           export HOME=$PWD/e2e_home && mkdir -p $HOME
+          mkdir -p e2e_out
           (python tests/e2e/server.py > e2e_server.log 2>&1 &)
-          sleep 3
-          node tests/e2e/drive.mjs || true
+          for i in $(seq 1 60); do curl -sf -o /dev/null http://127.0.0.1:8765/index.html && break; sleep 2; done
+          echo "server up after ~$((i*2))s" | tee e2e_out/drive.log
+          node tests/e2e/drive.mjs >> e2e_out/drive.log 2>&1 || echo "drive exit $?" >> e2e_out/drive.log
           cp e2e_server.log e2e_out/ || true
       - name: Publish results
         if: always()

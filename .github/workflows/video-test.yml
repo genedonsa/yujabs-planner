@@ -1,0 +1,79 @@
+name: video-test
+
+# 영상 만들기 실제 점검: 맥에서 한국어 말 영상을 만들고(say), 맥·윈도우에서 진짜 받아쓰기 모델로 편집해 본다.
+# 새로 나온 앱(릴리스)도 내려받아 영상 도구가 앱 안에 들어 있는지 selftest로 본다.
+# 결과는 video-results 브랜치에 올린다.
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+
+permissions:
+  contents: write
+
+jobs:
+  clip:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install imageio-ffmpeg certifi truststore
+      - run: python tests/video/real.py make-clip clip
+      - uses: actions/upload-artifact@v4
+        with: { name: clip, path: clip/raw.mp4 }
+
+  edit:
+    needs: clip
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with: { name: clip, path: clip }
+      - name: Edit
+        shell: bash
+        env:
+          PYTHONUTF8: "1"
+        run: python tests/video/real.py run clip res 2>&1 | tee res_log.txt; mkdir -p res; cp res_log.txt res/log_${{ runner.os }}.txt
+      - name: App selftest (released app)
+        if: ${{ github.event_name == 'workflow_run' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            curl -fsSL -o app.zip https://github.com/genedonsa/yujabs-planner/releases/latest/download/CornBot-macOS.zip
+            ditto -x -k app.zip appx && appx/CornBot.app/Contents/MacOS/CornBot "--selftest=$PWD/res/selftest_mac.json"
+          else
+            curl -fsSL -o app.zip https://github.com/genedonsa/yujabs-planner/releases/latest/download/CornBot-windows.zip
+            powershell -Command "Expand-Archive app.zip appx; Start-Process -Wait -FilePath appx\CornBot.exe -ArgumentList '--selftest=$(cygpath -w $PWD)\res\selftest_win.json'"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: res-${{ runner.os }}
+          path: res
+
+  publish:
+    needs: edit
+    if: ${{ always() && needs.edit.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: all, pattern: res-*, merge-multiple: true }
+      - env:
+          TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/res && cp -R all/. /tmp/res/ 2>/dev/null || true
+          cd /tmp/res && ls -la && git init -q && git checkout -q -b video-results
+          git config user.name "cornbot-video"; git config user.email "video@users.noreply.github.com"
+          git add -A && git commit -q -m "video ${{ github.run_number }}" --allow-empty
+          git push -f -q "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" video-results

@@ -65,6 +65,7 @@ jobs:
           pyinstaller --noconfirm --windowed --name "CornBot"
           --icon assets/icon.png
           --collect-all yt_dlp_ejs --collect-data certifi --hidden-import truststore
+          --collect-all faster_whisper --collect-all ctranslate2 --collect-all imageio_ffmpeg --collect-data tokenizers
           --add-binary "bin/deno:bin"
           --add-data "ui:ui" --add-data "assets:assets" --add-data "prompts:prompts"
           desktop.py
@@ -74,6 +75,7 @@ jobs:
           pyinstaller --noconfirm --windowed --name "CornBot"
           --icon assets/icon.png
           --collect-all yt_dlp_ejs --collect-data certifi --hidden-import truststore
+          --collect-all faster_whisper --collect-all ctranslate2 --collect-all imageio_ffmpeg --collect-data tokenizers
           --add-binary "bin/deno.exe:bin" --add-binary "bin/MicrosoftEdgeWebview2Setup.exe:bin"
           --add-data "ui:ui" --add-data "assets:assets" --add-data "prompts:prompts"
           desktop.py
