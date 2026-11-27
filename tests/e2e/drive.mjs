@@ -12,9 +12,10 @@ await p.addInitScript(() => {
   window.pywebview = { api: new Proxy({}, { get: (_, n) => call(n) }) };
   window.addEventListener('DOMContentLoaded', () => setTimeout(() => window.dispatchEvent(new Event('pywebviewready')), 50));
 });
-const shot = async (n) => { await p.screenshot({ path: `${OUT}/${n}.png`, fullPage: true }); rep.steps.push([T(), n]); };
+const save = () => fs.writeFileSync(`${OUT}/report.json`, JSON.stringify(rep, null, 2));
+const shot = async (n) => { await p.screenshot({ path: `${OUT}/${n}.png`, fullPage: true }); rep.steps.push([T(), n]); save(); };
 const step = async (n, fn) => { try { await fn(); } catch (e) { rep.errors.push(n + ': ' + e.message.split('\n')[0]); await shot('ERR_' + n); } };
-await p.goto('http://127.0.0.1:8765/index.html'); await p.waitForTimeout(1500); await shot('01_start');
+for (let i = 0; i < 30; i++) { try { await p.goto('http://127.0.0.1:8765/index.html'); break; } catch (e) { rep.errors.push('goto ' + i + ': ' + e.message.split('\n')[0]); await new Promise(r => setTimeout(r, 2000)); } } await p.waitForTimeout(1500); await shot('01_start');
 await step('setup', async () => {
   await p.fill('#myCh', 'https://www.youtube.com/@유튜브-잡스');
   const models = ['https://www.youtube.com/@ThinkMediaPodcast', 'https://www.youtube.com/@vidIQ', 'https://www.youtube.com/@ColinandSamir', 'https://www.youtube.com/@DanHenry'];
