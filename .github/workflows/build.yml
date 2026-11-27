@@ -113,7 +113,8 @@ jobs:
   # https://github.com/genedonsa/yujabs-planner/releases/latest/download/<파일 이름>
   release:
     needs: build
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+    # 세 가지(맥 Apple·맥 Intel·윈도우) 모두 성공했을 때만 올린다. 하나라도 빠지면 '최신 버전' 주소가 깨지기 때문.
+    if: ${{ success() && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
