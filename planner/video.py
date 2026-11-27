@@ -218,7 +218,16 @@ def _attach(prev: str, cur: str) -> bool:
 def _join(cur) -> str:
     t = "".join((" " if k and x[3] and not _attach(cur[k - 1][2], x[2]) else "") + x[2] for k, x in enumerate(cur))
     t = re.sub(r"(?<![\d])[.,]+|[.,]+(?![\d])", " ", t)  # 마침표·쉼표는 자막에서 뺀다 (3.5 같은 숫자는 둠)
-    return re.sub(r"\s+", " ", t).strip()
+    return spell(re.sub(r"\s+", " ", t).strip())
+
+
+def _has_rieul(ch: str) -> bool:
+    return "가" <= ch <= "힣" and (ord(ch) - 0xAC00) % 28 == 8
+
+
+def spell(t: str) -> str:
+    """받아쓰기가 자주 틀리는 맞춤법만 고친다: '드릴께요'→'드릴게요', '할께'→'할게'."""
+    return re.sub(r"(?<=[가-힣])께(?=요|\b|\s|$)", lambda m: "게" if _has_rieul(t[m.start() - 1]) else "께", t)
 
 
 def items(kept: list[W], max_chars: int = 20) -> list[dict]:

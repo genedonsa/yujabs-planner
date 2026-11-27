@@ -161,6 +161,12 @@ def _tag_format(ref: dict, formats: list[str], found_by: dict) -> str:
     return best
 
 
+def _same_channel(a: str, b: str) -> bool:
+    import urllib.parse as up
+    norm = lambda u: up.unquote((u or "").strip().lower()).split("?")[0].rstrip("/").replace("https://", "").replace("http://", "").replace("m.youtube", "www.youtube").replace("www.", "").removesuffix("/videos").removesuffix("/featured")
+    return bool(a and b) and norm(a) == norm(b)
+
+
 def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], None] = lambda k: None) -> dict:
     if not access.check_saved(s):
         raise PermissionError("이번 달 암호가 바뀌었어요. 커뮤니티 회원 게시판에서 새 암호를 확인해 주세요.")
@@ -185,6 +191,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
             continue
         ch["avg"] = int(baseline(vids, today, c["days"]))
         ch["video_count"] = len(vids)
+        ch["is_me"] = _same_channel(url, s.get("my_channel", ""))
         roles.append(ch)
         channel_vids[ch["id"]] = (ch, vids)
         titles += [v.title for v in vids]
@@ -196,8 +203,9 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     kws = merge_keywords(auto, s)
     anchor = anchor_word(groups[1:] or groups)  # 롤모델 제목 기준 분야 대표 말
     role_ids = {r["id"] for r in roles}
-    role_subs = [r["subs"] for r in roles if r.get("subs")]
-    role_avg = [r["avg"] for r in roles if r.get("avg")]
+    # 롤모델 칸에 내 채널을 넣었으면 '나보다 작은 채널'만 찾으면 거의 없다 → 나와 비슷한 규모(5배까지)로 찾는다
+    role_subs = [r["subs"] * (5 if r.get("is_me") else 1) for r in roles if r.get("subs")]
+    role_avg = [r["avg"] * (5 if r.get("is_me") else 1) for r in roles if r.get("avg")]
     max_subs = min(role_subs) if role_subs else None
     max_avg = min(role_avg) if role_avg else None
 
