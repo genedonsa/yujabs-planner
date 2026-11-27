@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Callable
 
 from . import access, collect, net
-from .discover import keywords as auto_keywords, shared_keywords
+from .discover import anchor_word, keywords as auto_keywords, shared_keywords
 from .surge import Video
 
 HOME = Path.home() / "유잡스 기획"
@@ -176,18 +176,21 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
 
     auto = shared_keywords(groups)
     kws = merge_keywords(auto, s)
+    anchor = anchor_word(groups[1:] or groups)  # 롤모델 제목 기준 분야 대표 말
     role_ids = {r["id"] for r in roles}
     role_subs = [r["subs"] for r in roles if r.get("subs")]
     role_avg = [r["avg"] for r in roles if r.get("avg")]
     max_subs = min(role_subs) if role_subs else None
     max_avg = min(role_avg) if role_avg else None
 
-    step("search"); log(f"키워드: {', '.join(kws)}")
+    step("search"); log(f"키워드: {', '.join(kws)} (분야: {anchor or '-'})")
     found_count: Counter = Counter()
     found_kw: dict[str, set] = {}
     found_by_format: dict[str, str] = {}
     found_vids: set[str] = set()
-    search_terms = [(k, None) for k in kws] + [(f, f) for f in formats]
+    def q(k: str) -> str:  # '비즈니스' 대신 '유튜브 비즈니스'처럼 분야 말을 붙여 검색
+        return f"{anchor} {k}" if anchor and anchor not in k.lower() else k
+    search_terms = [(q(k), None) for k in kws] + [(f, f) for f in formats]
     for term, fmt in search_terms:
         log(f"검색 중: {term}")
         try:
@@ -224,7 +227,10 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
                   (ch.get("subs") is None and max_avg and ch["avg"] and ch["avg"] < max_avg)
         recent_long = sum(1 for v in vids if not v.is_short and v.upload_date and (today - v.upload_date).days <= 30)
         ch["recent_30"] = recent_long
-        if cid in subs or (smaller and recent_long >= 1 and cid not in removed_subs):
+        # 같은 분야인지: 그 채널 영상 제목 2개 이상에 분야 말이나 키워드가 들어 있어야 한다
+        terms = [t.lower() for t in ([anchor] if anchor else []) + kws + formats if t]
+        on_topic = sum(1 for v in vids if any(t in v.title.lower() for t in terms)) >= 2
+        if cid in subs or (smaller and recent_long >= 1 and on_topic and cid not in removed_subs):
             bench.append(ch)
     if not subs:  # 처음엔 겹친 키워드가 많은 순으로 8곳을 자동으로 구독 리스트에
         for ch in sorted(bench, key=lambda x: -len(x.get("keywords", [])))[:8]:

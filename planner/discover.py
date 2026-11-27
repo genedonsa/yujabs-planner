@@ -10,7 +10,7 @@ STOPWORDS = set("""
 가지 하지 마세요 총정리 정리 꿀팁 현실 추천 비밀 알려 드림 드립니다 이렇게 이것 이것만 바로 꼭 제발 단돈 무료 모르면 손해 실패담 사람 사람들 나만 우리 없이 있게 하면서 위해 대한
 늘리 늘리기 만드 만들 만드는 벌기 버는 번 하기 되기 보기 알려 알려드 드리 찾기 쓰는 쓰기 파는 팔기 사는 하는법 방법들 이유 정말로 판매 강의
 the a an to of and in for on with my your how why what is are you i this that
-new made make makes making get gets got changed change changes changing watch watching actually literally finally update updates month months today tomorrow yesterday everything nothing something someone everyone people person guy guys man woman life world story stories real truth secret secrets mistake mistakes reason reasons why's here's that's it's i'm you're don't won't should could would never always rules rule if it its it's we our they them do does did don't can can't will just more most best top all every one two three first last vs not no yes so be was were been have has had from by at as or but about into out up down now here there when which who than then too very really still even also only own same other any some much many way ways things thing need want know try tried tips tip guide full free easy fast quick big little time times day days week year years video videos youtube channel channels views view subscribers subscriber youtuber youtubers shorts short live podcast episode ep part
+don doesn didn isn aren wasn her his him she he they their them minutes minute hours hour seconds 만든 만들었 만들어 했더니 하는법 했습니다 합니다 new made make makes making get gets got changed change changes changing watch watching actually literally finally update updates month months today tomorrow yesterday everything nothing something someone everyone people person guy guys man woman life world story stories real truth secret secrets mistake mistakes reason reasons why's here's that's it's i'm you're don't won't should could would never always rules rule if it its it's we our they them do does did don't can can't will just more most best top all every one two three first last vs not no yes so be was were been have has had from by at as or but about into out up down now here there when which who than then too very really still even also only own same other any some much many way ways things thing need want know try tried tips tip guide full free easy fast quick big little time times day days week year years video videos youtube channel channels views view subscribers subscriber youtuber youtubers shorts short live podcast episode ep part
 """.split())
 
 PARTICLES = ("으로", "에서", "에게", "까지", "부터", "보다", "처럼", "이랑", "하고", "은", "는", "이", "가", "을", "를", "의", "에", "도", "만", "로", "와", "과")
@@ -51,3 +51,30 @@ def shared_keywords(groups: list[list[str]], top: int = 8) -> list[str]:
     shared = [k for k, _ in sorted(((k, (df[k], tf[k])) for k in df if df[k] >= 2), key=lambda x: x[1], reverse=True)]
     rest = [k for k, _ in tf.most_common() if k not in shared]
     return (shared + rest)[:top] if len(shared) >= 3 else (shared + rest[:max(0, 4 - len(shared))])[:top]
+
+
+DOMAIN_WORDS = {"youtube", "유튜브", "channel", "채널", "영상", "video", "videos", "shorts", "쇼츠", "youtuber", "유튜버"}
+
+
+def anchor_word(groups: list[list[str]]) -> str:
+    """분야를 대표하는 말 하나 (예: 유튜브·youtube). 검색어 앞에 붙여 엉뚱한 분야 결과를 줄인다.
+    롤모델 여러 곳 제목에 두루 나오는 말 중 가장 흔한 것."""
+    excluded = STOPWORDS - DOMAIN_WORDS
+    df: Counter[str] = Counter()
+    tf: Counter[str] = Counter()
+    for g in groups:
+        seen = set()
+        for t in g:
+            t = re.sub(r"\(.*?\)|\[.*?\]|#\S+", " ", t)
+            for raw in re.findall(r"[가-힣A-Za-z]{2,}", t):
+                w = _strip_particle(raw.lower())
+                if w in excluded or len(w) < 2 or (w.isascii() and len(w) < 3):
+                    continue
+                tf[w] += 1
+                seen.add(w)
+        df.update(seen)
+    if not df:
+        return ""
+    need = max(2, (len([g for g in groups if g]) + 1) // 2)
+    cands = [w for w in df if df[w] >= need] or list(df)
+    return max(cands, key=lambda w: (df[w], tf[w]))

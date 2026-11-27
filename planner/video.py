@@ -198,8 +198,18 @@ def _remap(t: float, ivs: list[tuple[float, float]]) -> float:
     return acc
 
 
+# 받아쓰기가 띄어 쓴 조사·어미·단위를 앞말에 붙인다 ('방법 을'→'방법을', '꾸준함 입니다'→'꾸준함입니다', '52 편이'→'52편이')
+_ATTACH = re.compile(r"^(을|를|은|는|의|에|에서|에게|께|도|만|로|으로|와|과|랑|이랑|까지|부터|처럼|보다|"
+                     r"입니다|이에요|예요|이다|이죠|이고|이라|이라고|인데|이란|이나)[.,?!]*$")
+_UNIT = re.compile(r"^(편|개|명|원|만|천|억|년|월|일|주|시간|분|초|배|번|가지|살|위|등|퍼센트|%)")
+
+
+def _attach(prev: str, cur: str) -> bool:
+    return bool(_ATTACH.match(cur)) or (bool(re.search(r"\d$", prev)) and bool(_UNIT.match(cur)))
+
+
 def _join(cur) -> str:
-    t = "".join((" " if k and x[3] else "") + x[2] for k, x in enumerate(cur))
+    t = "".join((" " if k and x[3] and not _attach(cur[k - 1][2], x[2]) else "") + x[2] for k, x in enumerate(cur))
     t = re.sub(r"(?<![\d])[.,]+|[.,]+(?![\d])", " ", t)  # 마침표·쉼표는 자막에서 뺀다 (3.5 같은 숫자는 둠)
     return re.sub(r"\s+", " ", t).strip()
 
