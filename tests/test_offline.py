@@ -103,3 +103,21 @@ def test_thumbnail_lines_strip_numbers(tmp_path: Path, monkeypatch):
 def test_keywords_skip_generic_words():
     kws = keywords(["유튜브 수익화 3가지", "유튜브 수익화 하지 마세요", "수익화 현실 총정리", "현실 총정리 가지"])
     assert "수익화" in kws and not {"가지", "하지", "총정리", "현실"} & set(kws)
+
+
+def test_engine_criteria_and_keywords():
+    from datetime import timedelta
+    from planner import engine as E
+    today = date(2026, 11, 27)
+    old = [v(f"o{i}", "A", 4000, today - timedelta(days=10 + i * 3)) for i in range(30)]
+    new = [v("hit", "A", 15000, today - timedelta(days=2)),      # 3.75배, 1만 이상 → 통과
+           v("small", "A", 9000, today - timedelta(days=1)),     # 1만 미만 → 탈락
+           v("late", "A", 20000, today - timedelta(days=9))]     # 7일 넘음 → 탈락
+    vids = new + old
+    base = E.baseline(vids, today, 7)
+    # 평소 = 최근 3개월(90일) 롱폼 중 최근 7일을 뺀 평균: 4000회 27편 + 9일 전 2만 회 1편
+    assert round(base) == round((27 * 4000 + 20000) / 28)
+    got = E.hits({"name": "A", "id": "A"}, vids, base, today, dict(E.DEFAULT_CRITERIA))
+    assert [h["id"] for h in got] == ["hit"] and got[0]["ratio"] == 3.3
+    s = {"kw_removed": ["판매"], "kw_added": ["코스트코"]}
+    assert E.merge_keywords(["판매", "유튜브"], s) == ["유튜브", "코스트코"]
