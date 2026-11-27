@@ -16,7 +16,7 @@ permissions:
 jobs:
   clip:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    runs-on: macos-latest
+    runs-on: macos-15-intel   # 음성 만들기는 아무 맥이나 됨. Apple 칩 맥은 깃허브 대기열이 자주 막혀서 Intel 맥에서
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
