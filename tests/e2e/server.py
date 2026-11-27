@@ -33,4 +33,22 @@ class H(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     Path("e2e_out").mkdir(exist_ok=True)
+    from planner import engine as E, collect
+    _orig = E.analyze
+    def _logged(s, log, step):  # 분석 진행 기록을 파일로도 남긴다
+        f = open("e2e_out/analyze.log", "a", encoding="utf-8")
+        def l(m):
+            log(m); f.write(m + "\n"); f.flush()
+        try:
+            return _orig(s, l, step)
+        except Exception as e:
+            l(f"분석 오류: {type(e).__name__}: {e}"); raise
+    E.analyze = _logged
+    with open("e2e_out/probe.txt", "w", encoding="utf-8") as f:  # 검색이 되는지 바로 확인
+        for q in ["유튜브 수익화", "youtube growth"]:
+            try:
+                r = collect.search(q, 8)
+                f.write(f"{q}: {len(r)}개\n" + "".join(f"  {v.channel_id} {v.channel_name} {v.duration} {v.is_short} {v.upload_date} {v.title[:40]}\n" for v in r))
+            except Exception as e:
+                f.write(f"{q}: 실패 {type(e).__name__}: {str(e)[:300]}\n")
     ThreadingHTTPServer(("127.0.0.1", 8765), H).serve_forever()
