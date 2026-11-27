@@ -121,3 +121,37 @@ def test_engine_criteria_and_keywords():
     assert [h["id"] for h in got] == ["hit"] and got[0]["ratio"] == 3.3
     s = {"kw_removed": ["판매"], "kw_added": ["코스트코"]}
     assert E.merge_keywords(["판매", "유튜브"], s) == ["유튜브", "코스트코"]
+
+
+def test_settings_survive_corruption_and_upgrade(tmp_path, monkeypatch):
+    """업데이트·강제 종료로 설정 파일이 깨져도 직전 저장본으로 되살아나고, 옛 형식도 그대로 읽힌다."""
+    from planner import run as R
+    monkeypatch.setattr(R, "HOME", tmp_path)
+    monkeypatch.setattr(R, "SETTINGS", tmp_path / "settings.json")
+    monkeypatch.setattr(R, "BACKUP", tmp_path / "settings.bak.json")
+    old = {"my_channel": "https://www.youtube.com/@me", "role_models": ["a"], "formats": ["포맷1"]}  # 형식 번호 없는 옛 설정
+    (tmp_path / "settings.json").write_text(__import__("json").dumps(old), encoding="utf-8")
+    s = R.load_settings()
+    assert s["my_channel"].endswith("@me") and s["formats"] == ["포맷1"] and s["_schema"] == R.SCHEMA
+    R.save_settings({**s, "formats": ["포맷1", "포맷2"]})
+    R.save_settings({**s, "formats": ["포맷1", "포맷2", "포맷3"]})
+    (tmp_path / "settings.json").write_text("{깨진 파일", encoding="utf-8")  # 쓰다가 꺼진 상황
+    s2 = R.load_settings()
+    assert s2["formats"] == ["포맷1", "포맷2"]  # 직전 저장본으로 복구
+
+
+def test_old_plain_password_becomes_fingerprint(tmp_path, monkeypatch):
+    from planner import access, run as R
+    monkeypatch.setattr(R, "HOME", tmp_path)
+    monkeypatch.setattr(R, "SETTINGS", tmp_path / "settings.json")
+    monkeypatch.setattr(R, "BACKUP", tmp_path / "settings.bak.json")
+    (tmp_path / "settings.json").write_text('{"password": "abc", "my_channel": "x"}', encoding="utf-8")
+    s = R.load_settings()
+    assert "password" not in s and s["password_fp"] == access.fingerprint("abc")
+    monkeypatch.setattr(access, "current_fingerprints", lambda url="": {access.fingerprint("abc")})
+    assert access.check_saved(s)
+    R.save_settings(s)
+    assert "abc" not in (tmp_path / "settings.json").read_text(encoding="utf-8")
+    (tmp_path / "settings.json").write_text('{"password": "abc"}', encoding="utf-8")  # 옛 파일 위에 저장
+    R.save_settings({"my_channel": "y"})
+    assert '"abc"' not in (tmp_path / "settings.bak.json").read_text(encoding="utf-8")
