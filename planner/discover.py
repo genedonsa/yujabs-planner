@@ -7,6 +7,7 @@ from collections import Counter
 STOPWORDS = set("""
 영상 유튜브 채널 구독 구독자 조회수 방법 이유 진짜 정말 이거 그냥 무조건 절대 하는 하면 했던 하고 해서
 있는 없는 되는 안되는 모든 지금 오늘 처음 최고 최악 공개 결과 후기 리뷰 브이로그 vlog feat ft shorts
+가지 하지 마세요 총정리 정리 꿀팁 현실 추천 비밀 알려 드림 드립니다 이렇게 이것 이것만 바로 꼭 제발 단돈 무료 모르면 손해 실패담 사람 사람들 나만 우리
 the a an to of and in for on with my your how why what is are you i this that
 """.split())
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 from pathlib import Path
 from typing import Callable
@@ -118,7 +119,7 @@ def make_thumbnails(folder: Path, lines_text: str, s: dict) -> list[Path]:
     out = []
     rows = [l for l in lines_text.splitlines() if l.strip()]
     for ref, row in zip(refs, rows):
-        row = row.split(":", 1)[-1] if row[:2].strip(". ").isdigit() else row
+        row = re.sub(r"^\s*\d+\s*[.):\-]\s*", "", row)  # 앞 번호(1. / 1) / 1:) 떼기
         l1, _, l2 = row.partition("/")
         bg = folder / "원본썸네일" / f"{ref['id']}.jpg"
         out.append(compose(bg, l1.strip(), l2.strip(), folder / "썸네일시안" / f"{ref['id']}.jpg", tpl, style))
