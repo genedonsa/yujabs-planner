@@ -153,6 +153,13 @@ label{font-weight:800;font-size:14px;display:block}
 .empty-box{max-width:520px;margin:30px auto 0;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
 .empty-box img{width:130px}
 .prog .mw{width:140px;float:right;margin:-8px -6px 0 12px}
+.elist{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto}
+.elist li{display:flex;gap:8px;align-items:center}
+.elist .tm{font-size:12px;color:var(--muted);width:56px;flex:none;font-variant-numeric:tabular-nums}
+.elist input{flex:1}
+.elist li.off input{text-decoration:line-through;opacity:.45}
+img.noimg{background:var(--soft);min-height:40px;color:transparent}
+.warn{background:#fff4e0;border:1px solid #f0c36d;border-radius:8px;padding:10px 14px;font-size:14px}
 .toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;z-index:30}
 </style>
 </head>
@@ -209,22 +216,22 @@ label{font-weight:800;font-size:14px;display:block}
 <section id="s-prog" class="screen" hidden>
   <div class="prog panel">
     <img class="mw" src="cony_work.webp" alt="일하는 콘이">
-    <h2 class="disp" style="font-size:26px">분석하는 중이에요</h2>
-    <p class="hint">처음엔 5분 안팎 걸려요. 창을 닫지 말고 기다려 주세요.</p>
+    <h2 class="disp" style="font-size:26px" id="progH">분석하는 중이에요</h2>
+    <p class="hint" id="progHint">처음엔 5분 안팎 걸려요. 창을 닫지 말고 기다려 주세요.</p>
     <ol class="plist" id="plist"></ol>
     <div class="log" id="plog"></div>
     <div id="perr" hidden class="stack" style="gap:10px;margin-top:14px"><p class="err" id="perrMsg"></p>
-      <div class="row"><button class="btn" data-nav="settings">설정 고치기</button><button class="btn primary" id="retry">다시 시도</button></div></div>
+      <div class="row"><button class="btn" data-start>입력 고치기</button><button class="btn primary" id="retry">다시 시도</button></div></div>
   </div>
 </section>
 
 <!-- 벤치마킹 채널 -->
 <section id="s-bench" class="screen stack" hidden>
-  <div class="lhead"><div><p class="hint">롤모델의 영상·키워드로 찾았어요</p><h1>벤치마킹 채널 <em id="benchN">0곳</em></h1></div>
+  <div class="lhead"><div><p class="hint">롤모델의 영상·키워드로 찾았어요</p><h1>벤치마킹 채널 <em id="benchN">0곳</em></h1><p class="hint" id="benchSub"></p></div>
     <p class="hint">구독 리스트의 채널은 분석할 때마다 확인해요</p></div>
   <div id="benchEmpty"></div><div id="benchBody" class="stack">
   <div class="filters"><div class="fgroup"><span>롤모델 키워드 <small class="hint">자동으로 뽑았어요 · 빼거나 더해도 돼요 (다음 분석부터 반영)</small></span><div class="tagedit" id="kwEdit"></div></div></div>
-  <h3 class="sech">내가 넣은 롤모델</h3><div class="ylist" id="rlist"></div>
+  <h3 class="sech">내가 넣은 롤모델</h3><p class="warn" id="rfail" hidden></p><div class="ylist" id="rlist"></div>
   <h3 class="sech">콘봇이 찾은 작은 벤치마킹 채널 <span class="hint">롤모델과 키워드가 겹치고 더 작은 채널</span></h3><div class="ylist" id="blist"></div>
   <div class="row"><input type="text" id="addSub" placeholder="직접 추가할 채널 주소" style="max-width:420px"><button class="btn" id="addSubBtn">＋ 추가</button><span class="err" id="addSubErr" hidden></span></div>
   <div class="row" style="justify-content:flex-end"><button class="btn" id="rerun">바꾼 내용으로 다시 찾기</button><button class="btn go" data-nav="refs">터진 영상 보기</button></div>
@@ -261,9 +268,17 @@ label{font-weight:800;font-size:14px;display:block}
     <div id="vRun" hidden><ol class="plist" id="vlist"></ol><div class="log" id="vlog"></div>
       <p class="hint" style="margin-top:8px">처음 한 번은 받아쓰기 모델(약 500MB)을 받느라 더 걸려요. 10분짜리 영상은 보통 5~15분 걸려요.</p></div>
     <div id="vDone" hidden class="stack" style="gap:10px"><h2 class="disp" style="font-size:22px">다 만들었어요</h2><p id="vSum"></p>
-      <div class="row"><button class="btn primary" id="vOpen">완성 폴더 열기</button></div>
+      <div class="row"><button class="btn primary" id="vOpen">완성 폴더 열기</button><button class="btn" id="vEditBtn">자막·장면 고치기</button></div>
       <p class="hint">'콘봇_완성' 폴더에 최종.mp4와 자막.srt가 있어요. 자막.srt는 유튜브에 올릴 때 자막 파일로 넣을 수 있어요.</p></div>
   </div>
+<div id="vEdit" hidden class="panel stack" style="margin:16px auto 0;max-width:580px">
+  <div><h2 class="disp" style="font-size:22px">자막·장면 고치기</h2>
+    <p class="hint">자막 글자를 고치거나, 필요 없는 줄은 '빼기'를 누르세요. 뺀 줄은 그 장면도 영상에서 잘려요. 받아쓰기를 다시 하지 않아서 금방 끝나요.</p></div>
+  <ol class="elist" id="vLines"></ol>
+  <p class="err" id="vEditErr" hidden></p>
+  <div class="row" style="justify-content:flex-end"><button class="btn" id="vEditClose">닫기</button><button class="btn go" id="vRe">고친 대로 다시 만들기</button></div>
+</div>
+
 </section>
 
 <!-- 설정 -->
@@ -326,6 +341,15 @@ async function vpoll(){const p=await api.video_progress();const idx=VSTEPS.findI
   if(p.result){vRes=p.result;$("vRun").hidden=true;$("vDone").hidden=false;
     const mmss=x=>(x>=60?Math.floor(x/60)+"분 ":"")+Math.round(x%60)+"초";$("vSum").textContent=`${mmss(p.result.before)} → ${mmss(p.result.after)}로 줄였어요. 자막 ${p.result.lines}줄.`;}}
 $("vOpen").onclick=()=>vRes&&api.open_folder(vRes.folder);
+let vItems=[];
+const mm=x=>Math.floor(x/60)+":"+String(Math.floor(x%60)).padStart(2,"0");
+function drawLines(){$("vLines").innerHTML=vItems.map((it,i)=>`<li class="${it.keep===false?"off":""}"><span class="tm">${mm(it.s)}</span><input type="text" data-i="${i}" value="${esc(it.t)}" aria-label="${i+1}번째 자막"><button class="btn sm" data-drop="${i}">${it.keep===false?"되살리기":"빼기"}</button></li>`).join("");}
+$("vLines").addEventListener("input",e=>{const i=e.target.dataset.i;if(i!=null)vItems[i].t=e.target.value;});
+$("vLines").addEventListener("click",e=>{const b=e.target.closest("[data-drop]");if(!b)return;const it=vItems[b.dataset.drop];it.keep=it.keep===false;drawLines();});
+$("vEditBtn").onclick=async()=>{const r=await api.video_edit_load(vRes.folder);if(!r.ok){toast(r.error);return;}vItems=r.items.map(x=>({...x,keep:true}));drawLines();$("vEdit").hidden=false;$("vEdit").scrollIntoView({behavior:"smooth"});};
+$("vEditClose").onclick=()=>{$("vEdit").hidden=true;};
+$("vRe").onclick=async()=>{$("vEditErr").hidden=true;const r=await api.video_rerender(vRes.folder,vItems);if(!r.ok){$("vEditErr").textContent=r.error;$("vEditErr").hidden=false;return;}
+  $("vEdit").hidden=true;$("vDone").hidden=true;$("vRun").hidden=false;$("vGo").disabled=true;$("vPick").disabled=true;vpoll();};
 
 /* ---------- 시작 ---------- */
 async function boot(){
@@ -371,11 +395,11 @@ $("runBtn").onclick=async()=>{
 
 /* ---------- 분석 ---------- */
 const STEPS=[["me","내 채널과 내 경험 읽기 (영상 대본·소개·링크)"],["models","롤모델 채널의 영상·키워드"],["search","키워드와 내 포맷으로 검색"],["bench","작은 벤치마킹 채널 찾기"],["pick","기준을 넘은 영상 고르기"]];
-async function runAnalysis(){show("prog");$("perr").hidden=true;await api.start();poll();}
+async function runAnalysis(){show("prog");$("perr").hidden=true;$("progH").textContent="분석하는 중이에요";$("progHint").hidden=false;await api.start();poll();}
 async function poll(){const p=await api.get_progress();const idx=STEPS.findIndex(s=>s[0]===p.step);
   $("plist").innerHTML=STEPS.map((s,i)=>`<li class="${p.step==="done"||i<idx?"done":i===idx?"now":""}"><span class="dot">${p.step==="done"||i<idx?"✓":""}</span>${s[1]}</li>`).join("");
   $("plog").textContent=(p.log||[]).join("\n");
-  if(p.error){$("perrMsg").textContent=p.error;$("perr").hidden=false;return;}
+  if(p.error){$("perrMsg").textContent=p.error;$("perr").hidden=false;$("progH").textContent="분석을 마치지 못했어요";$("progHint").hidden=true;document.querySelectorAll("#plist .now").forEach(x=>x.classList.remove("now"));return;}
   if(p.result){R=p.result;state=await api.get_state();renderBench();show("bench");toast("분석을 마쳤어요");return;}
   setTimeout(poll,1200);}
 $("retry").onclick=runAnalysis; $("rerun").onclick=runAnalysis; $("rerun2").onclick=runAnalysis;
@@ -390,9 +414,10 @@ function chRow(c,role){const av=c.avatar?`<img class="yav" src="${esc(c.avatar)}
     ${role?'<button class="ysub on" disabled>구독 리스트</button>':`<button class="ysub ${c.subscribed?"on":""}" data-cid="${esc(c.id)}">${c.subscribed?"구독 리스트":"구독"}</button>`}</div>`;}
 function renderBench(){$("benchBody").hidden=!R;$("benchEmpty").hidden=!!R;if(!R){$("benchEmpty").innerHTML=`<div class="empty-box"><img src="cony_info.png" alt=""><h2 class="disp" style="font-size:24px">아직 분석 전이에요</h2><p class="hint">내 채널과 롤모델을 넣고 분석을 시작하면, 벤치마킹 채널과 터진 영상이 여기에 나와요.</p><button class="btn go" data-start>분석 시작하러 가기</button></div>`;return;}
   kws=[...R.keywords]; tagEditor($("kwEdit"),kws,"＋ 키워드 입력 후 Enter",()=>api.set_keywords(kws,R.auto_keywords));
+  const fr=R.failed_roles||[];$("rfail").hidden=!fr.length;$("rfail").textContent=fr.length?`이 주소는 채널을 찾지 못해서 빼고 분석했어요: ${fr.join(", ")} · 설정 > 고치기에서 주소를 확인해 주세요.`:"";
   $("rlist").innerHTML=R.roles.map(c=>chRow(c,true)).join("")||'<p class="empty">롤모델 채널을 읽지 못했어요.</p>';
   $("blist").innerHTML=R.bench.map(c=>chRow(c,false)).join("")||'<p class="empty">아직 찾은 채널이 없어요. 키워드를 더하거나 채널을 직접 추가해 보세요.</p>';
-  $("benchN").textContent=R.bench.filter(c=>c.subscribed).length+"곳";
+  $("benchN").textContent=R.bench.length+"곳";$("benchSub").textContent=`그중 구독 리스트 ${R.bench.filter(c=>c.subscribed).length}곳`;
   document.querySelectorAll(".ysub[data-cid]").forEach(b=>b.onclick=async()=>{const c=R.bench.find(x=>x.id===b.dataset.cid);c.subscribed=!c.subscribed;await api.toggle_sub(c.id,c.name,c.subscribed);renderBench();});}
 $("addSubBtn").onclick=async()=>{const u=$("addSub").value.trim();if(!u)return;$("addSubBtn").disabled=true;const r=await api.add_sub_url(u);$("addSubBtn").disabled=false;
   if(!r.ok){$("addSubErr").textContent=r.error;$("addSubErr").hidden=false;return;}$("addSubErr").hidden=true;$("addSub").value="";R.bench.unshift(r.channel);renderBench();toast("구독 리스트에 추가했어요");};
@@ -474,7 +499,8 @@ $("resetCrit").onclick=async()=>{await api.save_settings({criteria:{}});state=aw
 $("openHome").onclick=()=>api.open_folder(state.home||"");
 
 /* ---------- 업데이트 ---------- */
-async function checkUpdate(manual){const u=await api.check_update();
+let updAsked=false;
+async function checkUpdate(manual){if(!manual&&updAsked)return;updAsked=true;const u=await api.check_update();
   if(u.available){$("updVer").textContent=`새 버전 v${u.latest} · 지금 v${u.current}`;$("updNotes").textContent=u.notes||"";$("upd").hidden=false;}
   else if(manual)toast(u.error?"업데이트를 확인하지 못했어요":"최신 버전이에요");}
 $("checkUpd").onclick=()=>checkUpdate(true);
@@ -482,6 +508,7 @@ $("updLater").onclick=()=>$("upd").hidden=true;
 $("updGo").onclick=async()=>{$("updGo").disabled=true;$("updGo").textContent="받는 중…";const r=await api.do_update();
   if(!r.ok){$("updErr").textContent=r.error;$("updErr").hidden=false;$("updGo").disabled=false;$("updGo").textContent="다시 시도";}};
 
+document.addEventListener("error",e=>{const im=e.target;if(im.tagName==="IMG"&&!im.dataset.broken){im.dataset.broken="1";im.removeAttribute("src");im.classList.add("noimg");}},true);
 window.addEventListener("pywebviewready",()=>{api=window.pywebview.api;boot();});
 </script>
 </body>
