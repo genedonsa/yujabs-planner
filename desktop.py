@@ -15,6 +15,11 @@ import webbrowser
 from datetime import datetime
 from pathlib import Path
 
+if __name__ == "__main__" and "--mcp" in sys.argv:  # Claude 앱이 도구로 부를 때: 창 없이 대화 통로만 연다
+    from planner.mcp_server import serve
+    serve()
+    sys.exit(0)
+
 import webview
 
 from planner import access, collect
@@ -180,6 +185,44 @@ class Api:
             return True
         except Exception:
             return False
+
+    # ---- Claude 앱 연결 (MCP) ----
+    def claude_link_status(self) -> dict:
+        from planner import claude_link
+        try:
+            st = claude_link.status() if getattr(sys, "frozen", False) else {"linked": False, "dev": True}
+        except Exception as e:
+            st = {"linked": False, "error": str(e)[:120]}
+        st["auto"] = getattr(self, "link_result", None)
+        return st
+
+    def claude_link(self) -> dict:
+        from planner import claude_link
+        if not getattr(sys, "frozen", False):
+            return {"ok": False, "error": "개발용 실행에서는 연결하지 않아요."}
+        return claude_link.register()
+
+    # ---- 학원월드 주간 게시글 ----
+    def weekly_import(self, html: str, text: str) -> dict:
+        from planner import weekly
+        try:
+            items = weekly.import_post(html=html or "", text=text or "")
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+        except Exception as e:
+            return {"ok": False, "error": f"게시글을 읽지 못했어요. ({E._friendly(e)})"}
+        return {"ok": True, **weekly.load(E.HOME)}
+
+    def weekly_from_clipboard(self) -> dict:
+        from planner import clip
+        html, text = clip.read()
+        if not (html or text).strip():
+            return {"ok": False, "error": "복사해 둔 내용이 없어요. 학원월드 게시글을 열고 ⌘A ⌘C(윈도우는 Ctrl+A Ctrl+C)로 복사해 주세요."}
+        return self.weekly_import(html, text)
+
+    def weekly_list(self) -> dict:
+        from planner import weekly
+        return weekly.load(E.HOME)
 
     def open_claude(self) -> None:
         webbrowser.open("https://claude.ai/new")
@@ -356,6 +399,14 @@ def selftest(out: str) -> None:
         rep["whisper"] = f"{faster_whisper.__version__} / ct2 {ctranslate2.__version__}"
     except Exception as e:
         rep["video_error"] = f"{type(e).__name__}: {str(e)[:200]}"
+    try:  # Claude 앱이 부르는 도구 통로(--mcp)가 이 앱에서 실제로 열리는지
+        from planner import mcp_server
+        cmd = [sys.executable, "--mcp"] if getattr(sys, "frozen", False) else [sys.executable, str(Path(__file__).resolve()), "--mcp"]
+        rep["mcp"] = mcp_server.probe(cmd)
+        from planner import claude_link
+        rep["claude_config"] = claude_link.config_paths()[0].as_posix() if claude_link.config_paths() else ""
+    except Exception as e:
+        rep["mcp"] = f"ERR {type(e).__name__}: {str(e)[:200]}"
     Path(out).write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
@@ -368,6 +419,8 @@ def main():
             return
     ensure_webview2()
     api = Api()
+    from planner import claude_link
+    api.link_result = claude_link.auto()
     webview.create_window(APP_NAME, str(UI), js_api=api, width=1100, height=780, min_size=(900, 640))
     webview.start()
 
