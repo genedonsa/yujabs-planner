@@ -17,13 +17,15 @@ from pathlib import Path
 
 import webview
 
-from planner import access
+from planner import access, collect
+from planner import engine as E
 from planner import run as R
+from planner import updater as U
+from planner.version import VERSION
 
 APP_NAME = "콘봇"
 BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 UI = BASE / "ui" / "index.html"
-STEPS = ["me", "models", "search", "pick", "detail", "bundle", "done"]
 
 
 def _data_uri(path: Path) -> str:
@@ -37,6 +39,7 @@ def _data_uri(path: Path) -> str:
 class Api:
     def __init__(self):
         self.progress = {"running": False, "step": None, "log": [], "error": None, "result": None}
+        self.window = None
 
     # ---- 시작 / 설정 ----
     def get_state(self) -> dict:
@@ -45,16 +48,17 @@ class Api:
             ok, access_error = access.check(s.get("password", "")), ""
         except access.AccessError as e:
             ok, access_error = False, str(e)
-        return {
-            "code_ok": ok,
-            "access_error": access_error,
-            "had_password": bool(s.get("password")),
-            "settings": {k: s.get(k) for k in ("my_channel", "role_models", "audience", "notes", "extra_keywords",
-                                                 "template", "text_position", "color1", "color2")},
-            "template_preview": _data_uri(Path(s["template"])) if s.get("template") else "",
-            "history": self.history(),
-            "month": f"{datetime.now().year}년 {datetime.now().month}월",
-        }
+        last = None
+        f = E.HOME / "last_result.json"
+        if f.exists():
+            try:
+                last = json.loads(f.read_text(encoding="utf-8"))
+            except ValueError:
+                last = None
+        safe = {k: v for k, v in s.items() if k != "password"}
+        return {"code_ok": ok, "access_error": access_error, "had_password": bool(s.get("password")),
+                "settings": safe, "criteria": {**E.DEFAULT_CRITERIA, **(s.get("criteria") or {})},
+                "last": last, "version": VERSION, "home": str(E.HOME), "month": f"{datetime.now().year}년 {datetime.now().month}월"}
 
     def check_code(self, password: str) -> dict:
         try:
@@ -73,15 +77,43 @@ class Api:
         R.save_settings(s)
         return True
 
-    def pick_template(self) -> dict:
-        win = webview.windows[0]
-        res = win.create_file_dialog(webview.OPEN_DIALOG, file_types=("이미지 (*.png;*.jpg;*.jpeg)",))
-        if not res:
-            return {}
-        path = Path(res[0])
-        return {"path": str(path), "preview": _data_uri(path)}
+    # ---- 키워드·구독 리스트·포맷 ----
+    def set_keywords(self, kws: list, auto: list) -> bool:
+        s = R.load_settings()
+        kws = [k.strip() for k in kws if k.strip()]
+        s["kw_removed"] = sorted(set(s.get("kw_removed", [])) | {a for a in auto if a not in kws})
+        s["kw_removed"] = [k for k in s["kw_removed"] if k not in kws]
+        s["kw_added"] = [k for k in kws if k not in auto]
+        R.save_settings(s)
+        return True
 
-    # ---- 실행 ----
+    def toggle_sub(self, cid: str, name: str, on: bool) -> dict:
+        s = R.load_settings()
+        subs = s.get("subs") if isinstance(s.get("subs"), dict) else {}
+        removed = set(s.get("subs_removed", []))
+        if on:
+            subs[cid] = {"name": name}
+            removed.discard(cid)
+        else:
+            subs.pop(cid, None)
+            removed.add(cid)
+        s["subs"], s["subs_removed"] = subs, sorted(removed)
+        R.save_settings(s)
+        return subs
+
+    def add_sub_url(self, url: str) -> dict:
+        try:
+            ch, vids = collect.channel_videos(url, 40)
+        except Exception as e:
+            return {"ok": False, "error": f"채널을 찾지 못했어요. 주소를 확인해 주세요. ({str(e)[:60]})"}
+        ch["avg"] = int(E.baseline(vids, datetime.now().date(), 7))
+        ch["video_count"] = len(vids)
+        ch["keywords"] = ["직접 추가"]
+        ch["subscribed"] = True
+        self.toggle_sub(ch["id"], ch["name"], True)
+        return {"ok": True, "channel": ch}
+
+    # ---- 분석 ----
     def start(self) -> bool:
         if self.progress["running"]:
             return False
@@ -90,9 +122,12 @@ class Api:
 
         def work():
             try:
-                res = R.run(s, log=self.progress["log"].append,
-                            step=lambda k: self.progress.__setitem__("step", k))
-                self.progress["result"] = self.load_result(res["folder"])
+                res = E.analyze(s, log=self.progress["log"].append,
+                                step=lambda k: self.progress.__setitem__("step", k))
+                st = R.load_settings()
+                st["subs"] = res["subs"]
+                R.save_settings(st)
+                self.progress["result"] = res
             except Exception as e:  # 화면에 그대로 보여 준다
                 self.progress["error"] = str(e)
             finally:
@@ -102,39 +137,69 @@ class Api:
 
     def get_progress(self) -> dict:
         p = dict(self.progress)
-        p["log"] = p["log"][-8:]
+        p["log"] = p["log"][-6:]
         return p
 
-    # ---- 결과 ----
-    def load_result(self, folder: str) -> dict:
-        f = Path(folder)
-        refs = json.loads((f / "refs.json").read_text(encoding="utf-8"))
-        for r in refs:
-            r["thumb"] = _data_uri(f / "원본썸네일" / f"{r['id']}.jpg")
-            mine = f / "썸네일시안" / f"{r['id']}.jpg"
-            r["mine"] = _data_uri(mine) if mine.exists() else ""
-        lines_file = f / "썸네일문구.txt"
-        return {"folder": str(f), "date": f.name, "refs": refs,
-                "lines": lines_file.read_text(encoding="utf-8") if lines_file.exists() else ""}
+    # ---- 기획하기 ----
+    def make_material(self, video: dict, story: str) -> dict:
+        try:
+            text, folder = E.plan_material(video, story, R.load_settings())
+        except Exception as e:
+            return {"ok": False, "error": f"영상 정보를 가져오지 못했어요. ({str(e)[:80]})"}
+        self.copy_text(text)
+        return {"ok": True, "folder": str(folder), "chars": len(text)}
 
-    def history(self) -> list[dict]:
-        if not R.HOME.exists():
-            return []
+    def save_plan(self, folder: str, md: str) -> bool:
+        Path(folder).mkdir(parents=True, exist_ok=True)
+        (Path(folder) / "기획안.md").write_text(md, encoding="utf-8")
+        return True
+
+    def list_plans(self) -> list:
+        root = E.HOME / "기획"
         out = []
-        for d in sorted(R.HOME.iterdir(), reverse=True):
-            if d.is_dir() and (d / "refs.json").exists():
-                n = len(json.loads((d / "refs.json").read_text(encoding="utf-8")))
-                out.append({"folder": str(d), "date": d.name, "count": n})
-        return out[:12]
+        if root.exists():
+            for d in sorted(root.iterdir(), reverse=True):
+                v, p = d / "video.json", d / "기획안.md"
+                if v.exists():
+                    try:
+                        vid = json.loads(v.read_text(encoding="utf-8"))
+                    except ValueError:
+                        continue
+                    out.append({"folder": str(d), "video": vid,
+                                "plan": p.read_text(encoding="utf-8") if p.exists() else ""})
+        return out[:30]
 
-    def make_thumbs(self, folder: str, lines: str) -> dict:
-        f = Path(folder)
-        (f / "썸네일문구.txt").write_text(lines, encoding="utf-8")
-        R.make_thumbnails(f, lines, R.load_settings())
-        return self.load_result(folder)
+    def copy_text(self, text: str) -> bool:
+        try:
+            if sys.platform == "darwin":
+                subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
+            elif os.name == "nt":
+                subprocess.run(["clip"], input=text.encode("utf-16le"), check=True, creationflags=0x08000000)
+            return True
+        except Exception:
+            return False
+
+    def open_claude(self) -> None:
+        webbrowser.open("https://claude.ai/new")
+
+    # ---- 업데이트 ----
+    def check_update(self) -> dict:
+        try:
+            return U.check()
+        except Exception as e:
+            return {"available": False, "error": str(e)[:120], "current": VERSION}
+
+    def do_update(self) -> dict:
+        try:
+            U.apply()
+        except Exception as e:
+            return {"ok": False, "error": f"업데이트를 받지 못했어요. 인터넷 연결을 확인해 주세요. ({str(e)[:80]})"}
+        threading.Timer(0.6, lambda: os._exit(0)).start()
+        return {"ok": True}
 
     # ---- 열기 ----
     def open_folder(self, folder: str) -> None:
+        Path(folder).mkdir(parents=True, exist_ok=True)
         if sys.platform == "darwin":
             subprocess.run(["open", folder])
         elif os.name == "nt":
@@ -185,7 +250,7 @@ def selftest(out: str) -> None:
     """빌드 서버에서 실제 앱으로 돌려 보는 점검. 결과를 파일로 남긴다."""
     import platform
     import ssl
-    rep = {"platform": platform.platform(), "python": sys.version.split()[0], "base": str(BASE),
+    rep = {"version": VERSION, "platform": platform.platform(), "python": sys.version.split()[0], "base": str(BASE),
            "ui_exists": UI.exists(), "openssl": ssl.OPENSSL_VERSION}
     try:
         import certifi
