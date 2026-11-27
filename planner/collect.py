@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import urllib.parse
 import urllib.request
 from datetime import date, datetime
 from pathlib import Path
@@ -73,12 +74,21 @@ def channel_videos(channel_url: str, limit: int = 60) -> tuple[dict, list[Video]
     return ch, vids
 
 
-def search(query: str, n: int = 20) -> list[Video]:
-    """최신순 검색."""
-    opts = {**BASE_OPTS, "extract_flat": True}
+# 유튜브 검색 '업로드 날짜' 필터 (유튜브가 최신순 정렬을 없애서 yt-dlp의 ytsearchdate도 사라졌다)
+_DATE_SP = [(1, "EgIIAg%3D%3D"), (7, "EgIIAw%3D%3D"), (31, "EgIIBA%3D%3D"), (366, "EgIIBQ%3D%3D")]
+
+
+def search_url(query: str, days: int = 30) -> str:
+    sp = next((v for d, v in _DATE_SP if days <= d), _DATE_SP[-1][1])
+    return f"https://www.youtube.com/results?search_query={urllib.parse.quote(query)}&sp={sp}"
+
+
+def search(query: str, n: int = 20, days: int = 30) -> list[Video]:
+    """최근 days일 안에 올라온 영상 검색 (유튜브 관련도 순)."""
+    opts = {**BASE_OPTS, "extract_flat": True, "playlistend": n}
     with YoutubeDL(opts) as ydl:
-        info = ydl.extract_info(f"ytsearchdate{n}:{query}", download=False)
-    return [_to_video(e) for e in info.get("entries") or [] if e]
+        info = ydl.extract_info(search_url(query, days), download=False)
+    return [_to_video(e) for e in (info.get("entries") or [])[:n] if e]
 
 
 def _fetch(url: str) -> bytes:
