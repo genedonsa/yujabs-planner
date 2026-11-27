@@ -17,12 +17,18 @@ const shot = async (n) => { await p.screenshot({ path: `${OUT}/${n}.png`, fullPa
 const step = async (n, fn) => { try { await fn(); } catch (e) { rep.errors.push(n + ': ' + e.message.split('\n')[0]); await shot('ERR_' + n); } };
 for (let i = 0; i < 30; i++) { try { await p.goto('http://127.0.0.1:8765/index.html'); break; } catch (e) { rep.errors.push('goto ' + i + ': ' + e.message.split('\n')[0]); await new Promise(r => setTimeout(r, 2000)); } } await p.waitForTimeout(1500); await shot('01_start');
 await step('setup', async () => {
-  await p.fill('#myCh', 'https://www.youtube.com/@유튜브-잡스');
-  const models = ['https://www.youtube.com/@ThinkMediaPodcast', 'https://www.youtube.com/@vidIQ', 'https://www.youtube.com/@ColinandSamir', 'https://www.youtube.com/@DanHenry'];
+  const KO = (process.env.PERSONA || 'cook') === 'cook';
+  const P = KO ? { me: 'https://www.youtube.com/@Tooktak', models: ['https://www.youtube.com/@momstaste', 'https://www.youtube.com/@Yangjanggeumjubu', 'https://www.youtube.com/@심방골주부', 'https://www.youtube.com/@오늘식탁'],
+      intro: '직장 다니며 퇴근 후 20분 안에 만드는 집밥을 3년째 기록하고 있다. 자취생·맞벌이 부부를 위한 간단 반찬 레시피를 올린다.', aud: '바쁜 30~40대 맞벌이 / 반찬 레시피 전자책', fmts: ['집밥 레시피', '반찬 만들기'] }
+    : { me: 'https://www.youtube.com/@유튜브-잡스', models: ['https://www.youtube.com/@ThinkMediaPodcast', 'https://www.youtube.com/@vidIQ', 'https://www.youtube.com/@ColinandSamir', 'https://www.youtube.com/@DanHenry'],
+      intro: '회사 다니며 유튜브를 시작해 6개월 동안 수익 0원이었다. 사장님·창업가 인터뷰 채널을 30만 규모로 운영했다. 지금은 유튜브 운영 대행·컨설팅을 하고 유료 커뮤니티에서 강의를 판다.', aud: '유튜브로 지식 상품을 팔고 싶은 30~50대 / 유튜브 운영 강의', fmts: ['해외 유튜브 성공 사례 가져오기', '유튜브 수익화'] };
+  rep.persona = KO ? 'cook' : 'youtube';
+  await p.fill('#myCh', P.me);
+  const models = P.models;
   for (let i = 0; i < models.length; i++) { let ins = await p.$$('#models input'); if (!ins[i]) { await p.click('#addModel'); ins = await p.$$('#models input'); } await ins[i].fill(models[i]); }
-  await p.fill('#intro', '회사 다니며 유튜브를 시작해 6개월 동안 수익 0원이었다. 사장님·창업가 인터뷰 채널을 30만 규모로 운영했다. 지금은 유튜브 운영 대행·컨설팅을 하고 유료 커뮤니티에서 강의를 판다.');
-  await p.fill('#aud', '유튜브로 지식 상품을 팔고 싶은 30~50대 / 유튜브 운영 강의');
-  for (const f of ['해외 유튜브 성공 사례 가져오기', '유튜브 수익화']) { await p.fill('#fmtEdit .tgin', f); await p.press('#fmtEdit .tgin', 'Enter'); }
+  await p.fill('#intro', P.intro);
+  await p.fill('#aud', P.aud);
+  for (const f of P.fmts) { await p.fill('#fmtEdit .tgin', f); await p.press('#fmtEdit .tgin', 'Enter'); }
   await shot('02_setup_filled');
   await p.click('#runBtn'); await p.waitForTimeout(4000); await shot('03_progress');
 });
@@ -43,7 +49,7 @@ await step('plan', async () => {
   if (!(await p.$('.card'))) { rep.errors.push('레퍼런스 0편이라 기획하기를 못 눌렀어요'); return; }
   await p.hover('.card .tw'); await p.waitForTimeout(500); await shot('06_hover');
   await p.click('.card [data-plan]'); await p.waitForTimeout(1500); await shot('07_plan');
-  await p.fill('#story', '이 영상에서 말하는 핵심에 동의한다. 나도 처음 6개월은 수익이 0원이었고, 조회수보다 내 상품을 사는 사람을 모으는 게 중요하다는 걸 늦게 알았다. 우리 시청자에게는 첫 영상부터 상품과 연결되는 주제를 고르라고 말해 주고 싶다.');
+  await p.fill('#story', '이 영상의 핵심에 동의한다. 나도 처음엔 조회수가 안 나와서 6개월을 버텼고, 시청자가 실제로 따라 할 수 있는 순서로 보여 줄 때 반응이 왔다. 우리 시청자에게는 내가 직접 해 본 방법과 실패한 경험을 같이 말해 주고 싶다.');
   await p.click('#mkMat');
   for (let i = 0; i < 120; i++) { await p.waitForTimeout(1000); const m = await p.textContent('#matMsg'); if (m && !m.includes('가져오는 중')) break; }
   rep.materialMsg = await p.textContent('#matMsg'); await shot('08_material');
