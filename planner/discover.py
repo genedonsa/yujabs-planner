@@ -29,28 +29,32 @@ def _verbish(w: str) -> bool:
     return len(w) >= 3 and not w.isascii() and w.endswith(("어서", "아서", "해서", "면서", "는데", "었던", "았던", "했던", "하던", "니까", "더니", "려고", "으면"))
 
 
-def keywords(titles: list[str], top: int = 8) -> list[str]:
+# 분야가 '유튜브' 자체(유튜브 교육·성장)일 때는 평소엔 흔한 말로 빼던 유튜브 용어가 오히려 분야 키워드다
+YOUTUBE_FIELD_WORDS = {"조회수", "구독자", "구독", "알고리즘", "수익화", "썸네일", "쇼츠", "롱폼", "유튜버", "채널", "편집", "떡상"}
+
+
+def keywords(titles: list[str], top: int = 8, keep: set | frozenset = frozenset()) -> list[str]:
     counter: Counter[str] = Counter()
     for t in titles:
         t = re.sub(r"\(.*?\)|\[.*?\]|#\S+", " ", t)
         for raw in re.findall(r"[가-힣A-Za-z]{2,}", t):
             w = _strip_particle(raw.lower())
-            if w in STOPWORDS or len(w) < 2 or (w.isascii() and len(w) < 3) or _verbish(w):
+            if (w in STOPWORDS and w not in keep) or len(w) < 2 or (w.isascii() and len(w) < 3) or _verbish(w):
                 continue
             counter[w] += 1
     return [w for w, n in counter.most_common(top * 2) if n >= 2][:top] or [w for w, _ in counter.most_common(top)]
 
 
-def shared_keywords(groups: list[list[str]], top: int = 8) -> list[str]:
+def shared_keywords(groups: list[list[str]], top: int = 8, keep: set | frozenset = frozenset()) -> list[str]:
     """채널별 제목 묶음에서, 두 곳 이상에 함께 나오는 낱말을 우선으로 고른다.
     한 채널에만 자주 나오는 말(그 채널만의 말버릇·시리즈 이름)은 분야 키워드가 아닐 때가 많다."""
     groups = [g for g in groups if g]
     if len(groups) < 2:
-        return keywords([t for g in groups for t in g], top)
+        return keywords([t for g in groups for t in g], top, keep)
     df: Counter[str] = Counter()
     tf: Counter[str] = Counter()
     for g in groups:
-        ks = keywords(g, 30)
+        ks = keywords(g, 30, keep)
         df.update(set(ks))
         for i, k in enumerate(ks):
             tf[k] += 30 - i

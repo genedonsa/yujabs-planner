@@ -199,9 +199,13 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
 
     if not roles and failed_roles:
         raise RuntimeError("롤모델 채널을 하나도 읽지 못했어요. 주소가 맞는지 확인해 주세요: " + ", ".join(failed_roles[:3]))
-    auto = shared_keywords(groups)
-    kws = merge_keywords(auto, s)
     anchor = anchor_word(groups[1:] or groups)  # 롤모델 제목 기준 분야 대표 말
+    from .discover import YOUTUBE_FIELD_WORDS
+    yt_field = anchor in ("유튜브", "youtube", "유튜버")
+    if yt_field:  # 유튜브 교육 분야면 '유튜브' 대신 더 좁은 말을 검색어 앞에 붙이지 않는다(키워드가 이미 유튜브 용어)
+        anchor = "유튜브"
+    auto = shared_keywords(groups, keep=YOUTUBE_FIELD_WORDS if yt_field else frozenset())
+    kws = merge_keywords(auto, s)
     role_ids = {r["id"] for r in roles}
     # 롤모델 칸에 내 채널을 넣었으면 '나보다 작은 채널'만 찾으면 거의 없다 → 나와 비슷한 규모(5배까지)로 찾는다
     role_subs = [r["subs"] * (5 if r.get("is_me") else 1) for r in roles if r.get("subs")]
@@ -215,7 +219,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     found_by_format: dict[str, str] = {}
     found_vids: set[str] = set()
     def q(k: str) -> str:  # '비즈니스' 대신 '유튜브 비즈니스'처럼 분야 말을 붙여 검색
-        return f"{anchor} {k}" if anchor and anchor not in k.lower() else k
+        return f"{anchor} {k}" if anchor and anchor not in k.lower() and not k.startswith(anchor[:2]) else k
     search_terms = [(q(k), k, None) for k in kws] + [(f, f, f) for f in formats]
     for term, label, fmt in search_terms:
         log(f"검색 중: {term}")
@@ -301,7 +305,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     (out_dir / "refs.json").write_text(json.dumps(refs, ensure_ascii=False, indent=2), encoding="utf-8")
     result = {"date": today.isoformat(), "folder": str(out_dir), "me": {k: me[k] for k in ("name", "handle", "subs", "avatar", "video_count", "long_count")},
               "exp_count": len(me["experience"]), "keywords": kws, "auto_keywords": auto,
-              "roles": roles, "failed_roles": failed_roles, "bench": bench, "subs": subs, "refs": refs, "criteria": c, "formats": formats}
+              "roles": roles, "failed_roles": failed_roles, "bench": bench, "bench_why": dict(why), "bench_checked": len(check_ids), "subs": subs, "refs": refs, "criteria": c, "formats": formats}
     (HOME / "last_result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     step("done"); log("완료!")
     return result
