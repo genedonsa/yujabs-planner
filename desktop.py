@@ -209,10 +209,23 @@ def selftest(out: str) -> None:
         rep["yt_dlp"] = yt_dlp.version.__version__
     except Exception as e:
         rep["tools_error"] = f"{type(e).__name__}: {e}"
+    try:
+        import truststore  # noqa: F401
+        rep["system_certificates"] = True
+    except Exception as e:
+        rep["system_certificates"] = f"ERR {e}"
+    try:  # 유튜브 채널 목록 읽기(실제 수집 경로). 서버 컴퓨터는 유튜브가 막을 수 있어 참고용.
+        from planner import collect
+        ch, vids = collect.channel_videos("https://www.youtube.com/@유튜브-잡스", 5)
+        rep["youtube_channel"] = f"ok {ch.get('name')} {len(vids)}편, 첫 영상 업로드일 {vids[0].upload_date if vids else None}"
+    except Exception as e:
+        rep["youtube_channel"] = f"ERR {type(e).__name__}: {str(e)[:200]}"
     Path(out).write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def main():
+    from planner import net
+    net.use_system_certificates()
     for a in sys.argv[1:]:
         if a.startswith("--selftest="):
             selftest(a.split("=", 1)[1])

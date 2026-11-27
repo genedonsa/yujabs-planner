@@ -1,5 +1,6 @@
 yt-dlp[default]>=2025.11.12
 certifi
+truststore
 Pillow>=10.0
 pytest>=8.0
 pyinstaller>=6.0
