@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>유잡스 기획</title>
+<title>콘봇</title>
 <style>
 /* 디자인 계획
    주제: 유튜브 왕초보가 매주 '내 분야에서 터진 영상'을 받아 기획하는 도구 (유잡스 커뮤니티 회원용)
@@ -13,8 +13,8 @@
    배치: 왼쪽 정렬. 결과는 카드 더미 대신 '원본 | 내 시안' 두 칸 행을 가는 선으로 구분 */
 @font-face{font-family:"BHS";src:url("../assets/BlackHanSans-Regular.ttf") format("truetype");font-display:swap}
 :root{
-  --paper:#F4F5F3; --panel:#FFFFFF; --ink:#16181D; --muted:#6A7080; --line:#D9DCD5; --soft:#ECEEEA;
-  --yellow:#FFD21F; --yellow-soft:#FFF4C2; --hot:#E5352B;
+  --paper:#F9F8F7; --panel:#FFFFFF; --ink:#2B2927; --muted:#7A736A; --line:#E7E0D5; --soft:#F3EEE6;
+  --yellow:#FCC956; --yellow-soft:#FFF4DA; --hot:#E5352B;
   --ok:#16794A; --ok-soft:#E1F1E7; --err:#B8322A; --err-soft:#FBE5E2;
   --display:"BHS","Black Han Sans","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --font:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
@@ -141,7 +141,7 @@ textarea{resize:vertical;min-height:84px}
 </head>
 <body>
 <header class="top">
-  <div class="logo"><i>유</i>유잡스 기획</div>
+  <div class="logo"><img src="logo_dark.svg" alt="콘봇 CornBot" style="height:30px;display:block"></div>
   <div class="sp"></div>
   <span class="badge" id="monthBadge" hidden></span>
   <button class="link" id="navHome" hidden>홈</button>
