@@ -5,37 +5,107 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# 회원 컴퓨터에 따로 깔 것이 없도록, 필요한 것은 전부 앱 안에 넣는다.
+# - 파이썬·라이브러리·인증서: PyInstaller가 앱에 포함
+# - deno(유튜브 읽기에 필요한 실행기): bin/ 에 포함
+# - 윈도우 WebView2 설치기: bin/ 에 포함, 없을 때만 앱이 조용히 설치
 jobs:
   build:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        include:
+          - os: macos-latest        # Apple 칩(M1 이상)
+            label: macOS
+          - os: macos-15-intel      # Intel 맥
+            label: macOS-Intel
+          - os: windows-latest
+            label: Windows
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pywebview
+          pip install -r requirements.txt
       - name: Test
         run: python -m pytest -q tests
-      - name: Build app
+      - name: Bundle tools (mac)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p bin
+          cp "$(which deno)" bin/deno
+          chmod +x bin/deno
+          bin/deno --version
+      - name: Bundle tools (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force bin | Out-Null
+          Copy-Item (Get-Command deno).Source bin\deno.exe
+          Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile bin\MicrosoftEdgeWebview2Setup.exe
+          bin\deno.exe --version
+      - name: Build app (mac)
+        if: runner.os == 'macOS'
         run: >
           pyinstaller --noconfirm --windowed --name "CornBot"
           --icon assets/icon.png
+          --collect-all yt_dlp_ejs --collect-data certifi
+          --add-binary "bin/deno:bin"
           --add-data "ui:ui" --add-data "assets:assets" --add-data "prompts:prompts"
           desktop.py
+      - name: Build app (windows)
+        if: runner.os == 'Windows'
+        run: >
+          pyinstaller --noconfirm --windowed --name "CornBot"
+          --icon assets/icon.png
+          --collect-all yt_dlp_ejs --collect-data certifi
+          --add-binary "bin/deno.exe:bin" --add-binary "bin/MicrosoftEdgeWebview2Setup.exe:bin"
+          --add-data "ui:ui" --add-data "assets:assets" --add-data "prompts:prompts"
+          desktop.py
+      - name: Check bundle
+        shell: bash
+        run: |
+          find dist -path "*bin/deno*" -print | head
+          find dist -name "cacert.pem" -print | head -1
       - name: Zip (mac)
         if: runner.os == 'macOS'
-        run: ditto -c -k --keepParent "dist/CornBot.app" "CornBot-mac.zip"
+        run: ditto -c -k --keepParent "dist/CornBot.app" "CornBot-${{ matrix.label }}.zip"
       - name: Zip (windows)
         if: runner.os == 'Windows'
         run: Compress-Archive -Path dist/CornBot/* -DestinationPath CornBot-windows.zip
       - uses: actions/upload-artifact@v4
         with:
-          name: CornBot-${{ runner.os }}
+          name: CornBot-${{ matrix.label }}
           path: CornBot-*.zip
+
+  # 빌드가 끝나면 '릴리스'로 올린다. 주소가 늘 같아서 회원·Claude가 바로 받을 수 있다.
+  # https://github.com/genedonsa/yujabs-planner/releases/latest/download/<파일 이름>
+  release:
+    needs: build
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: ls -la dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: 콘봇 v0.1.${{ github.run_number }}
+          make_latest: true
+          files: |
+            dist/*.zip
+            install/install.sh
+            install/install.ps1
