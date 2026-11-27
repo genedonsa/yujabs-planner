@@ -17,21 +17,56 @@ HOME = Path.home() / "유잡스 기획"
 SETTINGS = HOME / "settings.json"
 
 
+# 설정 파일 형식 번호. 저장 형식을 바꿀 때만 올리고, migrate()에 옛 형식 → 새 형식 변환을 더한다.
+# (업데이트해도 회원이 넣은 채널·경험·포맷·구독 리스트가 절대 사라지지 않게 하는 장치)
+SCHEMA = 2
+BACKUP = HOME / "settings.bak.json"
+
+
+def migrate(s: dict) -> dict:
+    """옛 버전 설정을 지금 형식으로. 값은 지우지 않고 옮기거나 채우기만 한다."""
+    v = int(s.get("_schema") or 0)
+    if v < 1:  # 0 → 1: 형식 번호 도입. 비어 있으면 기본값만 채움
+        s.setdefault("role_models", [])
+        s.setdefault("formats", [])
+        s.setdefault("links", [])
+    if s.get("password"):  # 1 → 2: 암호 원문 대신 지문만 저장
+        s["password_fp"] = access.fingerprint(s.pop("password"))
+    s["_schema"] = SCHEMA
+    return s
+
+
 def load_settings() -> dict:
-    try:
-        return json.loads(SETTINGS.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
+    """설정 읽기. 파일이 깨졌으면 바로 전 저장본(백업)으로 되살린다."""
+    for f in (SETTINGS, BACKUP):
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+            if isinstance(d, dict):
+                return migrate(d)
+        except (OSError, ValueError):
+            continue
+    return {}
 
 
 def save_settings(s: dict) -> None:
+    """임시 파일에 다 쓴 뒤 바꿔치기해서, 쓰다가 꺼져도 설정이 반쯤 깨지지 않게 한다. 직전 저장본은 백업으로 남긴다."""
+    import os
     HOME.mkdir(parents=True, exist_ok=True)
-    SETTINGS.write_text(json.dumps(s, ensure_ascii=False, indent=2), encoding="utf-8")
+    s = migrate(dict(s))
+    tmp = SETTINGS.with_suffix(".tmp")
+    tmp.write_text(json.dumps(s, ensure_ascii=False, indent=2), encoding="utf-8")
+    if SETTINGS.exists():
+        try:  # 멀쩡한 직전 저장본만, 지금 형식으로 바꿔서 백업 (옛 암호 원문이 백업에 남지 않게)
+            prev = migrate(json.loads(SETTINGS.read_text(encoding="utf-8")))
+            BACKUP.write_text(json.dumps(prev, ensure_ascii=False, indent=2), encoding="utf-8")
+        except (OSError, ValueError, AttributeError):
+            pass
+    os.replace(tmp, SETTINGS)
 
 
 def run(s: dict, log: Callable[[str], None] = print, max_search_channels: int = 25,
         step: Callable[[str], None] = lambda k: None) -> dict:
-    if not access.check(s.get("password", "")):
+    if not access.check_saved(s):
         raise PermissionError("이번 달 암호가 바뀌었어요. 커뮤니티 회원 게시판에서 새 암호를 확인해 주세요.")
     today = date.today()
     out_dir = HOME / today.isoformat()

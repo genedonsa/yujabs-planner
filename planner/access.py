@@ -87,6 +87,12 @@ def current_fingerprint(url: str = "") -> str:
     return sorted(current_fingerprints(url))[0]
 
 
+def check_saved(s: dict) -> bool:
+    """저장해 둔 지문으로 이번 달 회원인지 확인. (암호 원문은 회원 컴퓨터에도 저장하지 않는다)"""
+    fp = s.get("password_fp") or (fingerprint(s["password"]) if s.get("password") else "")
+    return bool(fp) and fp in current_fingerprints()
+
+
 def check(password: str, expected: str | None = None) -> bool:
     """expected를 주면 그 값과 비교(테스트용), 없으면 시트의 지문들과 비교한다."""
     if not password or not password.strip():

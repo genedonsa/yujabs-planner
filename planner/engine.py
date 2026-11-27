@@ -28,6 +28,18 @@ BASELINE_DAYS = 90
 SELF_MARK = re.compile(r"(저는|제가|저도|저희|제\s|나는|내가|우리\s?회사|저한테|제\s?채널|저 같은|저처럼|제 경험|해\s?봤|했었|했는데|였는데)")
 
 
+def _friendly(e: Exception) -> str:
+    """유튜브 오류를 회원이 알아들을 말로."""
+    m = str(e)
+    if "does not exist" in m or "404" in m:
+        return "이 주소로 채널을 찾지 못했어요"
+    if "confirm you" in m or "bot" in m:
+        return "유튜브가 잠깐 막았어요. 조금 뒤 다시 해 주세요"
+    if "timed out" in m or "Connection" in m or "Network" in m:
+        return "인터넷 연결이 불안정해요"
+    return m[:60]
+
+
 def _today() -> date:
     return date.today()
 
@@ -63,7 +75,7 @@ def learn_me(s: dict, log: Callable[[str], None], max_videos: int = 12) -> dict:
         try:
             d = collect.video_transcript(v.url)
         except Exception as e:
-            log(f"  건너뜀 ({str(e)[:60]})")
+            log("  건너뜀 (" + _friendly(e) + ")")
             continue
         text = " ".join(x["text"] for x in d.get("transcript") or [])
         for sent in _self_sentences(text, 12):
@@ -148,7 +160,7 @@ def _tag_format(ref: dict, formats: list[str], found_by: dict) -> str:
 
 
 def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], None] = lambda k: None) -> dict:
-    if not access.check(s.get("password", "")):
+    if not access.check_saved(s):
         raise PermissionError("이번 달 암호가 바뀌었어요. 커뮤니티 회원 게시판에서 새 암호를 확인해 주세요.")
     today = _today()
     c = {**DEFAULT_CRITERIA, **(s.get("criteria") or {})}
@@ -160,12 +172,14 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     step("models")
     roles, channel_vids, titles = [], {}, list(me["titles"])
     groups = [list(me["titles"])]
+    failed_roles = []
     for url in s.get("role_models", []):
         log(f"롤모델 채널 읽는 중: {url}")
         try:
             ch, vids = collect.channel_videos(url, 60)
         except Exception as e:
-            log(f"  건너뜀 ({str(e)[:60]})")
+            log("  건너뜀 (" + _friendly(e) + ")")
+            failed_roles.append(url)
             continue
         ch["avg"] = int(baseline(vids, today, c["days"]))
         ch["video_count"] = len(vids)
@@ -174,6 +188,8 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
         titles += [v.title for v in vids]
         groups.append([v.title for v in vids])
 
+    if not roles and failed_roles:
+        raise RuntimeError("롤모델 채널을 하나도 읽지 못했어요. 주소가 맞는지 확인해 주세요: " + ", ".join(failed_roles[:3]))
     auto = shared_keywords(groups)
     kws = merge_keywords(auto, s)
     anchor = anchor_word(groups[1:] or groups)  # 롤모델 제목 기준 분야 대표 말
@@ -190,8 +206,8 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     found_vids: set[str] = set()
     def q(k: str) -> str:  # '비즈니스' 대신 '유튜브 비즈니스'처럼 분야 말을 붙여 검색
         return f"{anchor} {k}" if anchor and anchor not in k.lower() else k
-    search_terms = [(q(k), None) for k in kws] + [(f, f) for f in formats]
-    for term, fmt in search_terms:
+    search_terms = [(q(k), k, None) for k in kws] + [(f, f, f) for f in formats]
+    for term, label, fmt in search_terms:
         log(f"검색 중: {term}")
         try:
             res = collect.search(term, 20)
@@ -203,7 +219,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
                 continue
             found_count[v.channel_id] += 1
             found_vids.add(v.id)
-            found_kw.setdefault(v.channel_id, set()).add(term)
+            found_kw.setdefault(v.channel_id, set()).add(label)
             if fmt:
                 found_by_format[v.id] = fmt
 
@@ -269,7 +285,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     (out_dir / "refs.json").write_text(json.dumps(refs, ensure_ascii=False, indent=2), encoding="utf-8")
     result = {"date": today.isoformat(), "folder": str(out_dir), "me": {k: me[k] for k in ("name", "handle", "subs", "avatar", "video_count", "long_count")},
               "exp_count": len(me["experience"]), "keywords": kws, "auto_keywords": auto,
-              "roles": roles, "bench": bench, "subs": subs, "refs": refs, "criteria": c, "formats": formats}
+              "roles": roles, "failed_roles": failed_roles, "bench": bench, "subs": subs, "refs": refs, "criteria": c, "formats": formats}
     (HOME / "last_result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     step("done"); log("완료!")
     return result

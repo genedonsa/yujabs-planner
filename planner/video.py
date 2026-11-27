@@ -214,24 +214,57 @@ def _join(cur) -> str:
     return re.sub(r"\s+", " ", t).strip()
 
 
-def lines(kept: list[W], ivs: list[tuple[float, float]], max_chars: int = 20) -> list[tuple[float, float, str]]:
-    out, cur, cs = [], [], None
+def items(kept: list[W], max_chars: int = 20) -> list[dict]:
+    """자막 한 줄 단위 묶음. s·e는 원본 영상 기준 시간 (편집 화면에서 줄을 빼면 이 구간을 잘라 낸다)."""
+    out, cur = [], []
+
+    def flush():
+        if cur:
+            t = _join([(0, 0, w.t, w.sp) for w in cur])
+            if t:
+                out.append({"s": round(float(cur[0].s), 3), "e": round(float(cur[-1].e), 3), "t": t})
     for i, w in enumerate(kept):
-        s, e = _remap(w.s, ivs), _remap(w.e, ivs)
-        text = _join(cur)
+        text = _join([(0, 0, x.t, x.sp) for x in cur])
         long_pause = cur and (w.s - kept[i - 1].e) > 0.6
         if cur and (len(text) + 1 + len(w.t) > max_chars or long_pause):
-            out.append((cs, cur[-1][1], text))
-            cur, cs = [], None
-        if cs is None:
-            cs = s
-        cur.append((s, e, w.t, w.sp))
+            flush()
+            cur = []
+        cur.append(w)
         if re.search(r"[.?!]$", w.t):
-            out.append((cs, e, _join(cur)))
-            cur, cs = [], None
-    if cur:
-        out.append((cs, cur[-1][1], _join(cur)))
-    return [(a, max(b, a + 0.4), t.strip()) for a, b, t in out if t.strip()]
+            flush()
+            cur = []
+    flush()
+    return out
+
+
+def place(its: list[dict], ivs: list[tuple[float, float]]) -> list[tuple[float, float, str]]:
+    """원본 시간의 자막 줄을 잘라 낸 뒤 영상의 시간으로 옮긴다."""
+    res = []
+    for it in its:
+        a, b = _remap(it["s"], ivs), _remap(it["e"], ivs)
+        if b - a > 0.05:
+            res.append((a, max(b, a + 0.4), it["t"]))
+    return res
+
+
+def lines(kept: list[W], ivs: list[tuple[float, float]], max_chars: int = 20) -> list[tuple[float, float, str]]:
+    return place(items(kept, max_chars), ivs)
+
+
+def drop_ranges(ivs: list[tuple[float, float]], cuts: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    out = [list(x) for x in ivs]
+    for ca, cb in cuts:
+        nxt = []
+        for a, b in out:
+            if cb <= a or ca >= b:
+                nxt.append([a, b])
+                continue
+            if ca > a:
+                nxt.append([a, ca])
+            if cb < b:
+                nxt.append([cb, b])
+        out = nxt
+    return [(round(a, 3), round(b, 3)) for a, b in out if b - a > 0.05]
 
 
 def _ts_srt(t: float) -> str:
@@ -308,12 +341,51 @@ def make(src_folder: str, style_name: str = "유잡스 기본", model_size: str 
     step("cut"); log("무음·추임새·NG 구간 고르는 중…")
     kept = choose(words, st)
     ivs = intervals(kept, st, total, sil=silences(wav))
-    subs = lines(kept, ivs)
-    srt, ass = write_subs(subs, out, st)
-    (work / "cuts.json").write_text(json.dumps({"total": total, "intervals": ivs,
-                                                 "words": len(words), "kept": len(kept)}, ensure_ascii=False), encoding="utf-8")
-
+    its = items(kept)
+    (work / "edit.json").write_text(json.dumps({"source": str(joined), "style": style_name, "total": total,
+                                                 "intervals": ivs, "items": its, "words": len(words),
+                                                 "kept": len(kept)}, ensure_ascii=False, indent=1), encoding="utf-8")
     step("render"); log("자막 넣고 음량 맞춰서 최종본 만드는 중…")
+    res = _render(joined, ivs, place(its, ivs), st, out, work)
+    step("done")
+    return {**res, "before": round(float(total), 1)}
+
+
+def load_edit(out_folder: str) -> dict:
+    """편집 화면용: 만든 영상의 자막 줄 목록."""
+    d = json.loads((Path(out_folder) / "작업" / "edit.json").read_text(encoding="utf-8"))
+    return {"items": d["items"], "style": d["style"], "before": d["total"],
+            "after": round(sum(b - a for a, b in d["intervals"]), 1)}
+
+
+def rerender(out_folder: str, edited: list[dict], log: Callable[[str], None] = print) -> dict:
+    """편집 화면에서 고친 자막으로 다시 만든다. keep=False인 줄은 그 구간을 영상에서도 잘라 낸다.
+    받아쓰기는 다시 하지 않아서 빠르다."""
+    out = Path(out_folder)
+    work = out / "작업"
+    d = json.loads((work / "edit.json").read_text(encoding="utf-8"))
+    st = STYLES.get(d["style"], STYLES["유잡스 기본"])
+    keep, cuts = [], []
+    for it in edited:
+        if it.get("keep", True):
+            t = re.sub(r"\s+", " ", str(it.get("t", ""))).strip()
+            if t:
+                keep.append({"s": float(it["s"]), "e": float(it["e"]), "t": t})
+        else:
+            cuts.append((float(it["s"]) - 0.04, float(it["e"]) + 0.04))
+    ivs = drop_ranges([tuple(x) for x in d["intervals"]], cuts)
+    if not ivs:
+        raise RuntimeError("남은 장면이 없어요. 한 줄 이상은 남겨 주세요.")
+    log("고친 자막으로 다시 만드는 중…")
+    res = _render(Path(d["source"]), ivs, place(keep, ivs), st, out, work)
+    d["intervals"], d["items"] = ivs, keep
+    (work / "edit.json").write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {**res, "before": round(float(d["total"]), 1)}
+
+
+def _render(joined: Path, ivs: list[tuple[float, float]], subs, st: dict, out: Path, work: Path) -> dict:
+    ff = ffmpeg()
+    srt, ass = write_subs(subs, out, st)
     sel = "+".join(f"between(t,{a},{b})" for a, b in ivs)
     fonts = net.BASE / "ui" / "fonts"
     ass_arg = str(ass).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
@@ -332,6 +404,5 @@ def make(src_folder: str, style_name: str = "유잡스 기본", model_size: str 
         if "filter_complex" not in str(e) and "Option not found" not in str(e) and "Unrecognized" not in str(e):
             raise
         _run([ff, "-y", "-i", str(joined), "-filter_complex_script", str(script), *enc])
-    step("done")
-    return {"final": str(final), "srt": str(srt), "folder": str(out), "before": round(float(total), 1),
+    return {"final": str(final), "srt": str(srt), "folder": str(out),
             "after": round(float(sum(b - a for a, b in ivs)), 1), "cuts": len(ivs), "lines": len(subs)}
