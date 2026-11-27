@@ -445,7 +445,7 @@ function renderPlan(){renderSide();const P=curPlan;if(!P){$("planBody").innerHTM
       </ol></div>`;
     const st=$("story");const okS=()=>{$("mkMat").disabled=st.value.trim().length<10;P.story=st.value;};st.oninput=okS;okS();
     $("mkMat").onclick=async()=>{$("mkMat").disabled=true;$("matMsg").textContent="영상 정보를 가져오는 중…";const r=await api.make_material(v,st.value);$("mkMat").disabled=false;
-      if(!r.ok){$("matMsg").textContent=r.error;return;}P.folder=r.folder;$("matMsg").textContent=`복사했어요 (${r.chars.toLocaleString()}자). 이제 Claude에 붙여 넣으세요.`;};
+      if(!r.ok){$("matMsg").textContent=r.error;return;}P.folder=r.folder;$("matMsg").textContent=r.partial?`복사했어요 (${r.chars.toLocaleString()}자). 다만 유튜브가 이번엔 원본 자막·댓글을 막았어요. 잠시 뒤 다시 누르면 받아질 수 있어요. 지금 붙여 넣어도 기획안은 나와요.`:`복사했어요 (${r.chars.toLocaleString()}자). 이제 Claude에 붙여 넣으세요.`;};
     $("openC").onclick=()=>api.open_claude();
     $("paste").oninput=()=>$("savePlan").disabled=$("paste").value.trim().length<50;
     $("savePlan").onclick=async()=>{P.plan=$("paste").value;if(!P.folder){const r=await api.make_material(v,st.value);P.folder=r.folder||"";}await api.save_plan(P.folder,P.plan);toast("기획안을 저장했어요");renderPlan();};}
