@@ -318,10 +318,15 @@ def plan_material(video: dict, story: str, s: dict) -> tuple[str, Path]:
           "## 이 영상에 대한 내 이야기 (회원이 직접 쓴 것. 반드시 대본에 녹일 것)", story.strip() or "(비어 있음)", "",
           f"## 레퍼런스: {d.get('title')}",
           f"- 링크: https://youtu.be/{d.get('id')}",
-          f"- 채널: {d.get('channel')} · 길이 {ts(d.get('duration') or 0)} · 조회 {d.get('views') or 0:,} · 업로드 {video.get('upload_date')}",
-          f"- 채널 평소 대비 {video.get('ratio')}배 (평소 {video.get('baseline', 0):,}회 = 최근 3개월 롱폼 평균)",
+          f"- 채널: {d.get('channel')} · 길이 {ts(d.get('duration') or 0)} · 조회 {d.get('views') or 0:,} · 업로드 {video.get('upload_date') or '(모름)'}",
+          (f"- 채널 평소 대비 {video.get('ratio')}배" + (f" (평소 {video['baseline']:,}회 = 최근 3개월 롱폼 평균)" if video.get("baseline") else ""))
+          if video.get("ratio") else "- 채널 평소 대비 배수: (모름)",
           f"- 포맷: {video.get('format') or '(미정)'}",
-          f"- 썸네일: {d.get('thumbnail')}", "", "### 설명란", (d.get("description") or "")[:1500], "",
+          f"- 썸네일: {d.get('thumbnail')}", ""]
+    if video.get("note"):
+        L += ["### 학원월드 주간 게시글 분석 (대표가 쓴 분석. 기획의 출발점으로 삼고, 이 분석이 짚은 '왜 터졌나'를 내 영상에서 살릴 것)",
+              video["note"][:2500], ""]
+    L += ["### 설명란", (d.get("description") or "")[:1500], "",
           f"### 댓글 상위 {len(d.get('comments') or [])}개 (총 {d.get('comment_count') or 0:,}개)"]
     for cm in d.get("comments") or []:
         tag = ("고정 댓글 · " if cm.get("pinned") else "") + ("채널 주인 · " if cm.get("by_uploader") else "")

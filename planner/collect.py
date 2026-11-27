@@ -97,6 +97,23 @@ def _korean_titles(url: str, limit: int, ch: dict, vids: list[Video]) -> None:
             v.channel_name = name
 
 
+def video_info(url: str) -> dict:
+    """영상 한 편의 기본 정보(제목·채널·조회수·길이·업로드일). 댓글·자막은 읽지 않아 빠르다.
+    영상 페이지가 막히면 oEmbed(제목·채널만)로 대신한다."""
+    try:
+        opts = {**BASE_OPTS, "extractor_args": {"youtube": {"lang": ["ko"]}}}
+        with YoutubeDL(opts) as ydl:
+            e = ydl.extract_info(url, download=False, process=False)
+        return {"id": e.get("id"), "title": e.get("title"), "channel": e.get("channel") or e.get("uploader"),
+                "channel_id": e.get("channel_id"), "views": e.get("view_count"), "duration": e.get("duration"),
+                "upload_date": (_date(e.get("upload_date")) or date.today()).isoformat() if e.get("upload_date") else None}
+    except Exception:
+        q = urllib.parse.quote(url, safe="")
+        with urlopen(f"https://www.youtube.com/oembed?url={q}&format=json", timeout=15) as r:
+            o = json.loads(r.read().decode("utf-8"))
+        return {"title": o.get("title"), "channel": o.get("author_name")}
+
+
 # 유튜브 검색 '업로드 날짜' 필터 (유튜브가 최신순 정렬을 없애서 yt-dlp의 ytsearchdate도 사라졌다)
 _DATE_SP = [(1, "EgIIAg%3D%3D"), (7, "EgIIAw%3D%3D"), (31, "EgIIBA%3D%3D"), (366, "EgIIBQ%3D%3D")]
 

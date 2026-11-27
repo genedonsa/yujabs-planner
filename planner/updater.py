@@ -76,7 +76,10 @@ open "{app}"
         script.write_text(f"""@echo off
 :wait
 tasklist /FI "PID eq {pid}" | find "{pid}" >nul && (timeout /t 1 /nobreak >nul & goto wait)
-robocopy "{new}" "{home}" /MIR /NFL /NDL /NJH /NJS >nul
+rem stop CornBot --mcp started by the Claude app (it locks the files)
+taskkill /F /IM "{exe.name}" >nul 2>&1
+timeout /t 1 /nobreak >nul
+robocopy "{new}" "{home}" /MIR /R:5 /W:2 /NFL /NDL /NJH /NJS >nul
 start "" "{exe}"
 """, encoding="mbcs")
         flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP

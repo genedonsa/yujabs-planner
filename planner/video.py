@@ -254,6 +254,20 @@ def place(its: list[dict], ivs: list[tuple[float, float]]) -> list[tuple[float, 
     return res
 
 
+def overlays(its: list[dict], ivs: list[tuple[float, float]]) -> list[tuple[float, float, str, str]]:
+    """자막 줄에 붙은 강조 문구(emph)·챕터 카드(chapter)를 영상 시간으로. 챕터 번호는 순서대로 01, 02…"""
+    out, n = [], 0
+    clean = lambda x: str(x).replace("{", "(").replace("}", ")").replace("\\", "/").strip()
+    for it in its:
+        a, b = _remap(it["s"], ivs), _remap(it["e"], ivs)
+        if it.get("chapter"):
+            n += 1
+            out.append((a, a + 2.6, f"{{\\c&H0000D2FF&}}{n:02d}{{\\c&H00FFFFFF&}}  {clean(it['chapter'])}", "chapter"))
+        if it.get("emph"):
+            out.append((a, max(b, a + 1.8), clean(it["emph"]), "emph"))
+    return out
+
+
 def lines(kept: list[W], ivs: list[tuple[float, float]], max_chars: int = 20) -> list[tuple[float, float, str]]:
     return place(items(kept, max_chars), ivs)
 
@@ -284,7 +298,8 @@ def _ts_ass(t: float) -> str:
     return f"{cs // 360000}:{cs // 6000 % 60:02d}:{cs // 100 % 60:02d}.{cs % 100:02d}"
 
 
-def write_subs(subs, folder: Path, st: dict, w: int = 1920, h: int = 1080) -> tuple[Path, Path]:
+def write_subs(subs, folder: Path, st: dict, w: int = 1920, h: int = 1080, extras=None) -> tuple[Path, Path]:
+    """subs: 아래 자막 (시작, 끝, 글). extras: 위쪽 그래픽 (시작, 끝, 글, 'emph'|'chapter')."""
     srt = folder / "자막.srt"
     srt.write_text("\n".join(f"{i}\n{_ts_srt(a)} --> {_ts_srt(b)}\n{t}\n" for i, (a, b, t) in enumerate(subs, 1)),
                    encoding="utf-8")
@@ -298,6 +313,8 @@ PlayResY: {h}
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Default,{st['font']},{st['size']},{st['sub_color']},&H000000FF,&H00000000,{back},0,0,0,0,100,100,0,0,{border},{st['outline']},0,2,60,60,90,1
+Style: Emph,{st['font']},92,&H0000D2FF,&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,7,0,8,80,80,150,1
+Style: Chapter,{st['font']},120,&H00FFFFFF,&H000000FF,&H00000000,&HB4000000,0,0,0,0,100,100,0,0,3,24,0,5,80,80,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -307,8 +324,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         return re.sub(r"(\d[\d,.]*\s*(?:만|천|억|원|달러|명|개|배|%|퍼센트|년|개월|일|분|초|회)?)",
                       lambda m: "{\\c" + st["em_color"] + "&}" + m[1] + "{\\c" + st["sub_color"] + "&}", t)
     ass = folder / "자막.ass"
-    ass.write_text(head + "\n".join(f"Dialogue: 0,{_ts_ass(a)},{_ts_ass(b)},Default,,0,0,0,,{em(t)}"
-                                    for a, b, t in subs), encoding="utf-8")
+    lines_ = [f"Dialogue: 0,{_ts_ass(a)},{_ts_ass(b)},Default,,0,0,0,,{em(t)}" for a, b, t in subs]
+    for a, b, t, kind in extras or []:  # t는 overlays()에서 이미 { } 를 걸러 둠
+        if kind == "chapter":  # 화면 가운데 위쪽 챕터 카드 (자막 자리 y 820 아래는 피함)
+            lines_.append(f"Dialogue: 1,{_ts_ass(a)},{_ts_ass(b)},Chapter,,0,0,0,,{{\\fad(200,200)\\pos({w // 2},{int(h * 0.36)})}}{t}")
+        else:  # 위쪽 강조 문구 (노란 글씨 + 검은 테두리)
+            lines_.append(f"Dialogue: 1,{_ts_ass(a)},{_ts_ass(b)},Emph,,0,0,0,,{{\\fad(120,120)}}{t}")
+    ass.write_text(head + "\n".join(lines_), encoding="utf-8")
     return srt, ass
 
 
@@ -377,14 +399,18 @@ def rerender(out_folder: str, edited: list[dict], log: Callable[[str], None] = p
         if it.get("keep", True):
             t = re.sub(r"\s+", " ", str(it.get("t", ""))).strip()
             if t:
-                keep.append({"s": float(it["s"]), "e": float(it["e"]), "t": t})
+                k = {"s": float(it["s"]), "e": float(it["e"]), "t": t}
+                for key in ("emph", "chapter"):
+                    if str(it.get(key) or "").strip():
+                        k[key] = str(it[key]).strip()[:40]
+                keep.append(k)
         else:
             cuts.append((float(it["s"]) - 0.04, float(it["e"]) + 0.04))
     ivs = drop_ranges([tuple(x) for x in d["intervals"]], cuts)
     if not ivs:
         raise RuntimeError("남은 장면이 없어요. 한 줄 이상은 남겨 주세요.")
     log("고친 자막으로 다시 만드는 중…")
-    res = _render(Path(d["source"]), ivs, place(keep, ivs), st, out, work, log)
+    res = _render(Path(d["source"]), ivs, place(keep, ivs), st, out, work, log, extras=overlays(keep, ivs))
     d["intervals"], d["items"] = ivs, keep
     (work / "edit.json").write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
     return {**res, "before": round(float(d["total"]), 1)}
@@ -403,11 +429,50 @@ def _fc(ff: str, args_before: list[str], script: Path, args_after: list[str]) ->
         _run([ff, *args_before, "-filter_complex_script", str(script), *args_after])
 
 
+def edit_by_number(out_folder: str, drop=None, fix=None, emphasis=None, chapters=None,
+                   log: Callable[[str], None] = print) -> dict:
+    """자막 줄 번호(1부터)로 한꺼번에 고쳐 다시 만든다. drop: 뺄 줄, fix: {번호: 고친 글},
+    emphasis: {번호: 위쪽 강조 문구}, chapters: {번호: 챕터 이름}. 없는 번호는 알려 주고 건너뛴다."""
+    d = load_edit(out_folder)
+    its = [dict(x, keep=True) for x in d["items"]]
+    n = len(its)
+    missing = []
+
+    def idx(k):
+        try:
+            i = int(str(k).strip()) - 1
+        except ValueError:
+            i = -1
+        if 0 <= i < n:
+            return i
+        missing.append(str(k))
+        return None
+    for k in drop or []:
+        i = idx(k)
+        if i is not None:
+            its[i]["keep"] = False
+    for k, v in (fix or {}).items():
+        i = idx(k)
+        if i is not None and str(v).strip():
+            its[i]["t"] = str(v).strip()
+    for k, v in (emphasis or {}).items():
+        i = idx(k)
+        if i is not None:
+            its[i]["emph"] = str(v).strip()
+    for k, v in (chapters or {}).items():
+        i = idx(k)
+        if i is not None:
+            its[i]["chapter"] = str(v).strip()
+    res = rerender(out_folder, its, log)
+    res["missing"] = sorted(set(missing))
+    return res
+
+
 def _render(joined: Path, ivs: list[tuple[float, float]], subs, st: dict, out: Path, work: Path,
-            log: Callable[[str], None] = lambda m: None) -> dict:
+            log: Callable[[str], None] = lambda m: None, extras=None) -> dict:
     """1) 남길 구간을 CHUNK개씩 잘라 조각 파일로 2) 조각을 이어 붙이고 3) 자막·음량을 넣어 최종본."""
     ff = ffmpeg()
-    srt, ass = write_subs(subs, out, st)
+    srt, ass = write_subs(subs, out, st, extras=extras)
     parts_dir = work / "조각"
     parts_dir.mkdir(parents=True, exist_ok=True)
     for old in parts_dir.glob("*.mp4"):
