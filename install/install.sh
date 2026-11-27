@@ -15,4 +15,4 @@ mv "$TMP/app/CornBot.app" "$DEST/CornBot.app"
 xattr -dr com.apple.quarantine "$DEST/CornBot.app" 2>/dev/null || true
 rm -rf "$TMP"
 echo "설치 완료: $DEST/CornBot.app"
-open "$DEST/CornBot.app"
+[ -n "$CORNBOT_NO_OPEN" ] || open "$DEST/CornBot.app"

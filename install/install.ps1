@@ -16,4 +16,4 @@ $lnk = Join-Path ([Environment]::GetFolderPath("Desktop")) "CornBot.lnk"
 $ws = New-Object -ComObject WScript.Shell
 $s = $ws.CreateShortcut($lnk); $s.TargetPath = $exe; $s.WorkingDirectory = $dest; $s.Save()
 Write-Host "Installed: $exe (desktop shortcut: CornBot)"
-Start-Process $exe
+if (-not $env:CORNBOT_NO_OPEN) { Start-Process $exe }
