@@ -146,3 +146,12 @@ def test_claude_config_register_keeps_others(tmp_path, monkeypatch):
     f.write_text("{broken", encoding="utf-8")
     r = claude_link.register("/Apps/CornBot")
     assert not r["ok"] and "깨져" in r["error"] and f.read_text(encoding="utf-8") == "{broken"
+
+
+def test_spelling_and_self_role_and_keywords():
+    from planner.discover import keywords
+    from planner.video import spell
+    assert spell("알려드릴께요") == "알려드릴게요" and spell("선생님께") == "선생님께"
+    assert E._same_channel("https://www.youtube.com/@유튜브-잡스", "https://youtube.com/@%EC%9C%A0%ED%8A%9C%EB%B8%8C-%EC%9E%A1%EC%8A%A4/videos")
+    ks = keywords(["김장김치 맛있어서 난리난 레시피", "김장김치 반찬 대충 어떤", "반찬 대충 어떤 맛있어서"])
+    assert "김장김치" in ks and "반찬" in ks and not {"맛있어서", "대충", "어떤", "난리난"} & set(ks)
