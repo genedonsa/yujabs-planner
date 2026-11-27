@@ -42,6 +42,7 @@ class W:
     e: float
     t: str
     seg: int
+    sp: bool = True  # 앞에 띄어쓰기가 있는 낱말인지 ('방법'+'을'처럼 붙는 조각은 False)
 
 
 def ffmpeg() -> str:
@@ -78,10 +79,10 @@ def transcribe(audio: Path, model_size: str, log: Callable[[str], None]) -> list
                                   condition_on_previous_text=False)
     words: list[W] = []
     for i, sg in enumerate(segs):
-        for w in sg.words or []:
+        for j, w in enumerate(sg.words or []):
             t = w.word.strip()
             if t:
-                words.append(W(w.start, w.end, t, i))
+                words.append(W(w.start, w.end, t, i, j == 0 or w.word[:1] == " "))
         if i % 10 == 0:
             log(f"받아쓰는 중… {int(sg.end // 60)}분 {int(sg.end % 60)}초까지")
     return words
@@ -110,19 +111,22 @@ def choose(words: list[W], st: dict) -> list[W]:
                 nxt = _bare(words[i + 1].t) if i + 1 < n else ""
                 if nxt in {"한번", "한", "처음", "말해", "말씀"}:
                     continue
-                if gap_before[i] < 0.6 and gap_after[i] < 0.3:
-                    continue  # 문장 안에서 뜻으로 쓴 '다시'
-                j = i - 1  # 끊긴 문장의 시작(긴 쉼)까지 거슬러 올라감
-                while j > 0 and gap_before[j] < 0.7 and i - j < 40:
-                    j -= 1
-                # '다시' 뒤 첫 말이 앞에서 나온 적 있으면, 그 자리부터만 지운다 (앞 인사말 등은 살림)
+                # '다시' 뒤 첫 말이 바로 앞(15낱말 안)에 나온 적 있으면 다시 찍은 것: 그 자리부터 지운다
                 restart = next((_bare(words[k].t) for k in range(i + 1, min(i + 4, n))
                                 if _bare(words[k].t) not in FILLERS_ALWAYS), "")
-                if restart:
-                    for m in range(i - 1, max(i - 41, -1), -1):
-                        if _bare(words[m].t) == restart:
-                            j = m
-                            break
+                m_hit = next((m for m in range(i - 1, max(i - 16, -1), -1)
+                              if restart and _bare(words[m].t) == restart), None)
+                # 받아쓰기는 쉼을 앞 낱말 길이에 붙이므로 '다시'가 길게(0.7초+) 잡히면 쉼이 있었던 것
+                paused = gap_before[i] >= 0.6 or gap_after[i] >= 0.3 or (w.e - w.s) >= 0.7 \
+                    or (i and words[i - 1].e - words[i - 1].s >= 1.0)
+                if m_hit is None and not paused:
+                    continue  # 문장 안에서 뜻으로 쓴 '다시'
+                if m_hit is not None:
+                    j = m_hit
+                else:
+                    j = i - 1  # 끊긴 문장의 시작(긴 쉼)까지 거슬러 올라감
+                    while j > 0 and gap_before[j] < 0.7 and i - j < 40:
+                        j -= 1
                 for k in range(max(j, 0), i + 1):
                     drop[k] = True
     if st["cut_repeats"]:
@@ -144,7 +148,18 @@ def choose(words: list[W], st: dict) -> list[W]:
     return [w for i, w in enumerate(words) if not drop[i]]
 
 
-def intervals(kept: list[W], st: dict, total: float, pad: float = 0.08) -> list[tuple[float, float]]:
+def silences(wav: Path, min_len: float = 0.35) -> list[tuple[float, float]]:
+    """소리에서 직접 찾은 무음 구간. 받아쓰기 시간은 쉼을 낱말에 붙여 버려서 이걸로 잘라야 한다."""
+    p = subprocess.run([ffmpeg(), "-i", str(wav), "-af", f"silencedetect=noise=-35dB:d={min_len}", "-f", "null", "-"],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace",
+                       creationflags=0x08000000 if sys.platform == "win32" else 0)
+    st = [float(x) for x in re.findall(r"silence_start: (-?[\d.]+)", p.stderr)]
+    en = [float(x) for x in re.findall(r"silence_end: ([\d.]+)", p.stderr)]
+    return [(max(0.0, a), b) for a, b in zip(st, en)]
+
+
+def intervals(kept: list[W], st: dict, total: float, pad: float = 0.08,
+              sil: list[tuple[float, float]] | None = None) -> list[tuple[float, float]]:
     out: list[list[float]] = []
     for w in kept:
         s, e = max(0.0, w.s - pad), min(total, w.e + pad)
@@ -152,6 +167,22 @@ def intervals(kept: list[W], st: dict, total: float, pad: float = 0.08) -> list[
             out[-1][1] = max(out[-1][1], e)
         else:
             out.append([s, e])
+    # 남긴 구간 안의 긴 무음을 뺀다 (앞뒤로 max_gap/2 만큼은 숨 쉴 틈으로 남김)
+    keep = st["max_gap"] / 2
+    for a, b in sil or []:
+        if b - a <= st["max_gap"] + 0.1:
+            continue
+        ca, cb = a + keep, b - keep
+        nxt: list[list[float]] = []
+        for s, e in out:
+            if cb <= s or ca >= e:
+                nxt.append([s, e])
+                continue
+            if ca > s:
+                nxt.append([s, ca])
+            if cb < e:
+                nxt.append([cb, e])
+        out = nxt
     return [(round(a, 3), round(b, 3)) for a, b in out if b - a > 0.05]
 
 
@@ -167,23 +198,29 @@ def _remap(t: float, ivs: list[tuple[float, float]]) -> float:
     return acc
 
 
+def _join(cur) -> str:
+    t = "".join((" " if k and x[3] else "") + x[2] for k, x in enumerate(cur))
+    t = re.sub(r"(?<![\d])[.,]+|[.,]+(?![\d])", " ", t)  # 마침표·쉼표는 자막에서 뺀다 (3.5 같은 숫자는 둠)
+    return re.sub(r"\s+", " ", t).strip()
+
+
 def lines(kept: list[W], ivs: list[tuple[float, float]], max_chars: int = 20) -> list[tuple[float, float, str]]:
     out, cur, cs = [], [], None
     for i, w in enumerate(kept):
         s, e = _remap(w.s, ivs), _remap(w.e, ivs)
-        text = " ".join(x[2] for x in cur)
+        text = _join(cur)
         long_pause = cur and (w.s - kept[i - 1].e) > 0.6
         if cur and (len(text) + 1 + len(w.t) > max_chars or long_pause):
             out.append((cs, cur[-1][1], text))
             cur, cs = [], None
         if cs is None:
             cs = s
-        cur.append((s, e, w.t))
+        cur.append((s, e, w.t, w.sp))
         if re.search(r"[.?!]$", w.t):
-            out.append((cs, e, " ".join(x[2] for x in cur)))
+            out.append((cs, e, _join(cur)))
             cur, cs = [], None
     if cur:
-        out.append((cs, cur[-1][1], " ".join(x[2] for x in cur)))
+        out.append((cs, cur[-1][1], _join(cur)))
     return [(a, max(b, a + 0.4), t.strip()) for a, b, t in out if t.strip()]
 
 
@@ -260,7 +297,7 @@ def make(src_folder: str, style_name: str = "유잡스 기본", model_size: str 
         raise RuntimeError("말소리를 찾지 못했어요. 소리가 녹음된 영상인지 확인해 주세요.")
     step("cut"); log("무음·추임새·NG 구간 고르는 중…")
     kept = choose(words, st)
-    ivs = intervals(kept, st, total)
+    ivs = intervals(kept, st, total, sil=silences(wav))
     subs = lines(kept, ivs)
     srt, ass = write_subs(subs, out, st)
     (work / "cuts.json").write_text(json.dumps({"total": total, "intervals": ivs,
@@ -277,9 +314,14 @@ def make(src_folder: str, style_name: str = "유잡스 기본", model_size: str 
         f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2,ass='{ass_arg}':fontsdir='{fonts_arg}'[v];"
         f"[0:a]aselect='{sel}',asetpts=N/SR/TB,loudnorm=I={st['loudness']}:TP=-1.5:LRA=11[a]", encoding="utf-8")
     final = out / "최종.mp4"
-    _run([ff, "-y", "-i", str(joined), "-filter_complex_script", str(script), "-map", "[v]", "-map", "[a]",
-          "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-          "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(final)])
+    enc = ["-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+           "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(final)]
+    try:  # ffmpeg 7.1 이후 방식
+        _run([ff, "-y", "-i", str(joined), "-/filter_complex", str(script), *enc])
+    except RuntimeError as e:  # 옛 ffmpeg
+        if "filter_complex" not in str(e) and "Option not found" not in str(e) and "Unrecognized" not in str(e):
+            raise
+        _run([ff, "-y", "-i", str(joined), "-filter_complex_script", str(script), *enc])
     step("done")
     return {"final": str(final), "srt": str(srt), "folder": str(out), "before": round(total, 1),
             "after": round(sum(b - a for a, b in ivs), 1), "cuts": len(ivs), "lines": len(subs)}
