@@ -160,12 +160,20 @@ label{font-weight:800;font-size:14px;display:block}
 .elist li.off input{text-decoration:line-through;opacity:.45}
 img.noimg{background:var(--soft);min-height:40px;color:transparent}
 .warn{background:#fff4e0;border:1px solid #f0c36d;border-radius:8px;padding:10px 14px;font-size:14px}
+.wpaste{border:2px dashed var(--line,#ddd);border-radius:10px;padding:18px;min-height:64px;color:var(--muted);font-size:14px;outline:none;max-height:120px;overflow:hidden}
+.wpaste:focus{border-color:var(--ink)}
+.wnote{font-size:13px;line-height:1.6;color:var(--ink);white-space:pre-line;max-height:7.5em;overflow:hidden;margin:6px 0 0}
+.wcard .wnote{padding:0 12px 10px}
+.claudebox{background:#f7f4ee;border:1px solid #e6e0d2;border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.6}
+.deco{display:flex;gap:6px;padding-left:64px}.deco input{font-size:13px}
+.elist li{flex-wrap:wrap}
 .toast{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;z-index:30}
 </style>
 </head>
 <body>
 <header class="top">
   <img src="logo_dark.svg" alt="콘봇 CornBot">
+  <button class="nav" data-nav="weekly" hidden>주간 게시글</button>
   <button class="nav" data-nav="refs" hidden>레퍼런스</button>
   <button class="nav" data-nav="bench" hidden>벤치마킹 채널</button>
   <button class="nav" data-nav="plans" hidden>내 기획안</button>
@@ -238,6 +246,22 @@ img.noimg{background:var(--soft);min-height:40px;color:transparent}
   </div>
 </section>
 
+<!-- 학원월드 주간 게시글 -->
+<section id="s-weekly" class="screen stack" hidden>
+  <div class="lhead"><div><p class="hint" id="wDate">학원월드에 매주 올라오는 '주간 급상승 영상' 게시글</p><h1>주간 게시글 레퍼런스 <em id="wN"></em></h1></div></div>
+  <div class="panel stack">
+    <ol class="howto">
+      <li><div><b>학원월드에서 이번 주 게시글을 열어요</b></div></li>
+      <li><div><b>전체 선택하고 복사해요</b><p class="hint">맥은 ⌘A 다음 ⌘C, 윈도우는 Ctrl+A 다음 Ctrl+C</p></div></li>
+      <li><div><b>아래 버튼을 누르거나, 아래 칸을 누르고 붙여 넣어요</b><p class="hint">영상 링크와 영상마다 달린 분석(왜 터졌나 등)을 함께 가져와요</p>
+        <div class="row" style="margin-top:8px"><button class="btn go" id="wClip">복사한 게시글 가져오기</button><span class="hint" id="wMsg"></span></div>
+        <div class="wpaste" id="wPaste" contenteditable="true" role="textbox" aria-label="게시글 붙여 넣는 칸" style="margin-top:8px">여기를 누르고 붙여 넣어도 돼요 (⌘V / Ctrl+V)</div></div></li>
+    </ol>
+    <p class="err" id="wErr" hidden></p>
+  </div>
+  <div class="grid" id="wGrid"></div>
+</section>
+
 <!-- 레퍼런스 -->
 <section id="s-refs" class="screen stack" hidden>
   <div class="lhead"><div><p class="hint" id="refCrit"></p><h1>내 포맷에서 터진 영상 <em id="refN">0편</em></h1></div>
@@ -261,6 +285,7 @@ img.noimg{background:var(--soft);min-height:40px;color:transparent}
     <div><h1 class="disp" style="font-size:28px">영상 만들기</h1>
       <p class="hint">촬영한 원본 영상(롱폼)을 한 폴더에 넣고 고르세요. 여러 개면 파일 이름 순서대로 이어 붙여요.</p></div>
     <ul class="hint" style="margin:0;padding-left:18px;line-height:1.7"><li>말 없는 구간과 '어·음' 같은 추임새를 잘라요</li><li>찍다가 "다시"라고 말하면 틀린 부분을 지우고 다시 말한 부분만 남겨요</li><li>자막(한 줄 20자, 숫자는 노란색)을 넣고 목소리 크기를 맞춰요</li></ul>
+    <p class="claudebox">Claude 앱에 콘봇을 연결했다면 Claude 앱에서 <b>"바탕화면 촬영 폴더 편집해 줘"</b>라고 말해도 돼요. 받아쓰기 오타 고치기·강조 문구·챕터 카드·유튜브 설명란까지 Claude가 해 줘요.</p>
     <div class="row"><button class="btn" id="vPick">폴더 고르기</button><span id="vFolder" class="hint">아직 고르지 않았어요</span></div>
     <div class="row"><label for="vStyle" style="font-weight:800">편집 스타일</label><select id="vStyle"></select></div>
     <p class="err" id="vErr" hidden></p>
@@ -293,6 +318,9 @@ img.noimg{background:var(--soft);min-height:40px;color:transparent}
     <div class="setr"><b>평소보다 몇 배</b><span>그 채널 최근 3개월 롱폼 평균 대비</span><select id="cRatio"><option value="2">2배</option><option value="3">3배</option><option value="5">5배</option></select></div></div>
   <div class="setg"><h3>키워드·구독 리스트</h3>
     <div class="setr"><b>키워드와 채널</b><span>벤치마킹 채널 화면에서 빼고 더해요</span><button class="btn sm" data-nav="bench">열기</button></div></div>
+  <div class="setg"><h3>Claude 앱 연결</h3>
+    <div class="setr"><b>Claude 앱에서 콘봇 쓰기</b><span id="linkLine">확인 중…</span><button class="btn sm" id="linkBtn">연결하기</button></div>
+    <p class="hint" style="margin:6px 0 0">연결하면 Claude 앱(회원 본인 계정)에서 "이번 주 게시글로 기획해 줘", "바탕화면 촬영 폴더 편집해 줘"처럼 말로 시킬 수 있어요. 연결한 뒤 Claude 앱을 완전히 끄고(맥 ⌘Q, 윈도우는 오른쪽 아래 트레이에서 종료) 다시 열어 주세요.</p></div>
   <div class="setg"><h3>저장 위치·버전</h3>
     <div class="setr"><b>자료 폴더</b><span>홈 폴더의 '유잡스 기획'</span><button class="btn sm" id="openHome">열기</button></div>
     <div class="setr"><b>버전</b><span id="verLine"></span><button class="btn sm" id="checkUpd">업데이트 확인</button></div></div>
@@ -321,7 +349,7 @@ function show(id){document.querySelectorAll(".screen").forEach(s=>s.hidden=s.id!
   document.querySelectorAll(".nav").forEach(n=>n.setAttribute("aria-current",n.dataset.nav===id));window.scrollTo(0,0);}
 function navOn(on){document.querySelectorAll(".nav").forEach(n=>n.hidden=!on);$("monthBadge").hidden=!on;}
 document.addEventListener("click",e=>{if(e.target.closest("[data-start]")){fillSetup();show("setup");return;}const b=e.target.closest("[data-nav]");if(!b)return;const t=b.dataset.nav;
-  if(t==="refs")renderRefs(); if(t==="bench")renderBench(); if(t==="plans")openPlans(); if(t==="settings")renderSettings(); if(t==="video")openVideo(); show(t==="plans"?"plan":t);});
+  if(t==="refs")renderRefs(); if(t==="bench")renderBench(); if(t==="plans")openPlans(); if(t==="settings")renderSettings(); if(t==="video")openVideo(); if(t==="weekly")openWeekly(); show(t==="plans"?"plan":t);});
 
 
 /* ---------- 영상 만들기 ---------- */
@@ -343,9 +371,11 @@ async function vpoll(){const p=await api.video_progress();const idx=VSTEPS.findI
 $("vOpen").onclick=()=>vRes&&api.open_folder(vRes.folder);
 let vItems=[];
 const mm=x=>Math.floor(x/60)+":"+String(Math.floor(x%60)).padStart(2,"0");
-function drawLines(){$("vLines").innerHTML=vItems.map((it,i)=>`<li class="${it.keep===false?"off":""}"><span class="tm">${mm(it.s)}</span><input type="text" data-i="${i}" value="${esc(it.t)}" aria-label="${i+1}번째 자막"><button class="btn sm" data-drop="${i}">${it.keep===false?"되살리기":"빼기"}</button></li>`).join("");}
-$("vLines").addEventListener("input",e=>{const i=e.target.dataset.i;if(i!=null)vItems[i].t=e.target.value;});
-$("vLines").addEventListener("click",e=>{const b=e.target.closest("[data-drop]");if(!b)return;const it=vItems[b.dataset.drop];it.keep=it.keep===false;drawLines();});
+function drawLines(){$("vLines").innerHTML=vItems.map((it,i)=>{const open=it._deco||it.emph||it.chapter;return `<li class="${it.keep===false?"off":""}"><span class="tm">${mm(it.s)}</span><input type="text" data-i="${i}" value="${esc(it.t)}" aria-label="${i+1}번째 자막"><button class="btn sm" data-deco="${i}" aria-expanded="${!!open}">꾸미기</button><button class="btn sm" data-drop="${i}">${it.keep===false?"되살리기":"빼기"}</button>
+  ${open?`<div class="deco"><input type="text" data-k="emph" data-i="${i}" value="${esc(it.emph||"")}" placeholder="위쪽 강조 문구 (핵심에만)" aria-label="${i+1}번째 줄 강조 문구"><input type="text" data-k="chapter" data-i="${i}" value="${esc(it.chapter||"")}" placeholder="여기서 시작하는 챕터 이름" aria-label="${i+1}번째 줄 챕터 이름"></div>`:""}</li>`;}).join("");}
+$("vLines").addEventListener("input",e=>{const i=e.target.dataset.i;if(i!=null)vItems[i][e.target.dataset.k||"t"]=e.target.value;});
+$("vLines").addEventListener("click",e=>{const d=e.target.closest("[data-deco]");if(d){const it=vItems[d.dataset.deco];it._deco=!(it._deco||it.emph||it.chapter);if(!it._deco){it.emph="";it.chapter="";}drawLines();return;}
+  const b=e.target.closest("[data-drop]");if(!b)return;const it=vItems[b.dataset.drop];it.keep=it.keep===false;drawLines();});
 $("vEditBtn").onclick=async()=>{const r=await api.video_edit_load(vRes.folder);if(!r.ok){toast(r.error);return;}vItems=r.items.map(x=>({...x,keep:true}));drawLines();$("vEdit").hidden=false;$("vEdit").scrollIntoView({behavior:"smooth"});};
 $("vEditClose").onclick=()=>{$("vEdit").hidden=true;};
 $("vRe").onclick=async()=>{$("vEditErr").hidden=true;const r=await api.video_rerender(vRes.folder,vItems);if(!r.ok){$("vEditErr").textContent=r.error;$("vEditErr").hidden=false;return;}
@@ -446,15 +476,38 @@ function renderRefs(){$("refFilters").hidden=!R;$("rerun2").hidden=!R;if(!R){$("
   document.querySelectorAll("[data-plan]").forEach(b=>b.onclick=()=>startPlan(R.refs.find(r=>r.id===b.dataset.plan)));
   document.querySelectorAll(".ctitle[data-url]").forEach(t=>t.onclick=()=>api.open_url(t.dataset.url));}
 
+/* ---------- 학원월드 주간 게시글 ---------- */
+let W=null;
+async function openWeekly(){if(!W)W=await api.weekly_list();renderWeekly();}
+function renderWeekly(){const it=(W&&W.items)||[];$("wN").textContent=it.length?it.length+"편":"";$("wDate").textContent=W&&W.date?`${W.date}에 가져온 게시글 · 새 게시글이 올라오면 다시 가져오세요`:"학원월드에 매주 올라오는 '주간 급상승 영상' 게시글";
+  it.forEach((v,i)=>v.code="W"+(i+1));
+  $("wGrid").innerHTML=it.map((v,i)=>`<div class="card wcard"><div class="tw"><img class="thumb" src="${esc(v.thumb)}" alt="" loading="lazy">${v.ratio?`<span class="ratio"><small>평소의</small>${v.ratio}배</span>`:""}
+     <div class="hov"><button class="btn go" data-wplan="${i}">기획하기</button></div></div>
+     <div class="ctitle" data-url="${esc(v.url)}" title="유튜브에서 보기">W${i+1}. ${esc(v.title||"(제목을 못 읽었어요)")}</div>
+     <div class="cmeta"><span>${esc(v.channel||"")}</span>${v.views!=null?`<span>조회 ${fmtN(v.views)}</span>`:""}</div>
+     ${v.note?`<p class="wnote">${esc(v.note)}</p>`:""}</div>`).join("");
+  document.querySelectorAll("[data-wplan]").forEach(b=>b.onclick=()=>startPlan(it[+b.dataset.wplan]));
+  document.querySelectorAll("#wGrid .ctitle[data-url]").forEach(t=>t.onclick=()=>api.open_url(t.dataset.url));}
+async function wImport(fn){$("wErr").hidden=true;$("wClip").disabled=true;$("wMsg").textContent="게시글을 읽고 영상 정보를 가져오는 중… (영상당 2~5초)";
+  let r;try{r=await fn();}catch(e){r={ok:false,error:"게시글을 읽지 못했어요. 다시 해 주세요."};}
+  $("wClip").disabled=false;$("wMsg").textContent="";
+  if(!r.ok){$("wErr").textContent=r.error;$("wErr").hidden=false;return;}
+  W=r;renderWeekly();toast(`영상 ${r.items.length}편을 가져왔어요`);}
+$("wClip").onclick=()=>wImport(()=>api.weekly_from_clipboard());
+$("wPaste").addEventListener("paste",e=>{e.preventDefault();const d=e.clipboardData;const h=d.getData("text/html")||"",t=d.getData("text/plain")||"";
+  $("wPaste").textContent="붙여 넣었어요. 읽는 중…";wImport(()=>api.weekly_import(h,t)).then(()=>$("wPaste").textContent="여기를 누르고 붙여 넣어도 돼요 (⌘V / Ctrl+V)");});
+$("wPaste").addEventListener("keydown",e=>{if(!(e.metaKey||e.ctrlKey))e.preventDefault();});
+
 /* ---------- 기획 ---------- */
 async function openPlans(){plans=await api.list_plans();if(!curPlan&&plans.length)curPlan=plans[0];renderPlan();}
-function startPlan(v){curPlan={folder:"",video:v,plan:""};plans=[curPlan,...plans.filter(p=>p.video.id!==v.id)];renderPlan();show("plan");}
+function startPlan(v){if(!v.code&&R&&R.refs){const i=R.refs.findIndex(r=>r.id===v.id);if(i>=0)v.code="R"+(i+1);}curPlan={folder:"",video:v,plan:""};plans=[curPlan,...plans.filter(p=>p.video.id!==v.id)];renderPlan();show("plan");}
 function renderSide(){$("planSide").innerHTML='<span class="hint" style="padding:0 8px;font-weight:800">내 기획안</span>'+(plans.map((p,i)=>`<button aria-current="${p===curPlan}" data-pi="${i}"><img src="${esc(p.video.thumb)}" alt=""><span>${esc(p.video.title)}</span></button>`).join("")||'<p class="hint" style="padding:8px">아직 없어요</p>');
   document.querySelectorAll("[data-pi]").forEach(b=>b.onclick=()=>{curPlan=plans[+b.dataset.pi];renderPlan();});}
 function renderPlan(){renderSide();const P=curPlan;if(!P){$("planBody").innerHTML='<div class="empty-box"><img src="cony_info.png" alt=""><h2 class="disp" style="font-size:24px">아직 기획안이 없어요</h2><p class="hint">레퍼런스 화면에서 썸네일에 마우스를 올리고 기획하기를 눌러 주세요.</p><button class="btn go" data-nav="refs">레퍼런스 보러 가기</button></div>';return;}const v=P.video;
   const head=`<div class="row" style="align-items:start;flex-wrap:nowrap;gap:16px"><img src="${esc(v.thumb)}" alt="" style="width:220px;border-radius:6px;flex:none">
-    <div class="stack" style="gap:4px"><b style="font-size:17px;line-height:1.4">${esc(v.title)}</b><span class="hint">${esc(v.channel)} · 조회 ${fmtN(v.views)} · 평소의 ${v.ratio}배 · ${esc(v.format||"포맷 미정")}</span>
-    <div class="row"><button class="btn sm" data-u="${esc(v.url)}">유튜브에서 보기</button>${P.folder?`<button class="btn sm" data-f="${esc(P.folder)}">자료 폴더</button>`:""}</div></div></div>`;
+    <div class="stack" style="gap:4px"><b style="font-size:17px;line-height:1.4">${esc(v.title)}</b><span class="hint">${esc(v.channel)} · 조회 ${fmtN(v.views)} · ${v.ratio?`평소의 ${v.ratio}배 · `:""}${esc(v.format||"포맷 미정")}</span>
+    <div class="row"><button class="btn sm" data-u="${esc(v.url)}">유튜브에서 보기</button>${P.folder?`<button class="btn sm" data-f="${esc(P.folder)}">자료 폴더</button>`:""}</div></div></div>`
+    +(v.note?`<div class="panel"><b>학원월드 게시글 분석</b><p class="wnote" style="max-height:none">${esc(v.note)}</p><p class="hint" style="margin:6px 0 0">이 분석도 기획 자료에 함께 들어가요.</p></div>`:"");
   if(P.plan){$("planBody").innerHTML=head+`<div class="row"><button class="btn sm" id="cpPlan">기획안 복사</button><button class="btn sm" id="rePlan">다시 만들기</button></div><div class="panel md">${md(P.plan)}</div>`;
     $("cpPlan").onclick=async()=>{await api.copy_text(P.plan);toast("복사했어요");};$("rePlan").onclick=()=>{P.plan="";renderPlan();};}
   else{$("planBody").innerHTML=head+`
@@ -463,6 +516,7 @@ function renderPlan(){renderSide();const P=curPlan;if(!P){$("planBody").innerHTM
       <textarea id="story" rows="8">${esc(P.story||"")}</textarea>
       <p class="hint">콘봇이 익힌 내 경험도 함께 넣어요. 길게 쓸수록 대본이 풍부해져요.</p></div>
     <div class="panel stack"><h3 style="font-size:17px">Claude로 기획안 만들기</h3>
+      <p class="claudebox">Claude 앱에 콘봇을 연결했다면 Claude 앱에서 <b>"${esc(v.code||"이 영상")}로 기획안이랑 대본 써 줘"</b>처럼 말하면 돼요. 다 쓰면 여기 '내 기획안'에 저절로 저장돼요. 연결 전이라면 아래 순서대로 하세요.</p>
       <ol class="howto">
         <li><div><b>자료 복사</b><p class="hint">원본 자막·댓글, 내 경험, 내 이야기, 지시문이 한 번에 복사돼요. 영상 정보를 가져오느라 10~30초 걸려요.</p><div class="row" style="margin-top:6px"><button class="btn primary" id="mkMat" disabled>자료 복사</button><span class="hint" id="matMsg"></span></div></div></li>
         <li><div><b>Claude에 붙여 넣고 보내기</b><p class="hint">새 대화에 붙여 넣고(⌘V / Ctrl+V) 보내요.</p><div class="row" style="margin-top:6px"><button class="btn" id="openC">Claude 열기</button></div></div></li>
@@ -493,7 +547,11 @@ function md(src){const L=src.replace(/\r/g,"").split("\n");let o="",i=0;const in
 document.addEventListener("click",e=>{const a=e.target.closest("a[data-ext]");if(a){e.preventDefault();api.open_url(a.dataset.ext);}});
 
 /* ---------- 설정 ---------- */
-function renderSettings(){const c=state.criteria;$("cDays").value=String(c.days);$("cMin").value=String(c.min_views);$("cRatio").value=String(Math.round(c.ratio));}
+async function renderLink(){const l=await api.claude_link_status();
+  $("linkLine").textContent=l.dev?"개발용 실행이에요":l.linked?"연결됨 · Claude 앱 입력창 아래 '도구'(또는 + 메뉴)에 콘봇이 보여요":l.broken?"Claude 앱 설정 파일이 깨져 있어요":l.claude_installed?"아직 연결 안 됨":"Claude 데스크톱 앱이 아직 없어요 (claude.ai/download)";
+  $("linkBtn").textContent=l.linked?"다시 연결":"연결하기";}
+$("linkBtn").onclick=async()=>{const r=await api.claude_link();toast(r.ok?"연결했어요. Claude 앱을 완전히 끄고 다시 열어 주세요":(r.error||"연결하지 못했어요"));renderLink();};
+function renderSettings(){renderLink();const c=state.criteria;$("cDays").value=String(c.days);$("cMin").value=String(c.min_views);$("cRatio").value=String(Math.round(c.ratio));}
 ["cDays","cMin","cRatio"].forEach(id=>$(id).onchange=async()=>{await api.save_settings({criteria:{days:+$("cDays").value,min_views:+$("cMin").value,ratio:+$("cRatio").value}});state=await api.get_state();toast("저장했어요. 다시 찾기부터 반영돼요");});
 $("resetCrit").onclick=async()=>{await api.save_settings({criteria:{}});state=await api.get_state();renderSettings();toast("유잡스 기본값으로 되돌렸어요");};
 $("openHome").onclick=()=>api.open_folder(state.home||"");
