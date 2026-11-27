@@ -41,6 +41,9 @@ jobs:
           pip install -r requirements.txt
       - name: Test
         run: python -m pytest -q tests
+      - name: Stamp version
+        shell: bash
+        run: echo "VERSION = \"0.2.${{ github.run_number }}\"" > planner/version.py && cat planner/version.py
       - name: Bundle tools (mac)
         if: runner.os == 'macOS'
         run: |
@@ -121,8 +124,9 @@ jobs:
       - run: ls -la dist
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v0.1.${{ github.run_number }}
-          name: 콘봇 v0.1.${{ github.run_number }}
+          tag_name: v0.2.${{ github.run_number }}
+          name: 콘봇 v0.2.${{ github.run_number }}
+          body_path: release_notes.md
           make_latest: true
           files: |
             dist/*.zip
