@@ -239,6 +239,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     step("bench")
     bench = []
     check_ids = [cid for cid, _ in found_count.most_common(25)]
+    why: Counter = Counter()
     check_ids += [cid for cid in subs if cid not in check_ids]
     for cid in check_ids:
         try:
@@ -260,6 +261,11 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
         big_enough = (ch.get("subs") or 0) >= 1000 and (ch["avg"] or 0) >= 1000
         if cid in subs or (smaller and big_enough and recent_long >= 1 and on_topic and cid not in removed_subs):
             bench.append(ch)
+        else:
+            why[("롤모델보다 큼" if not smaller else "너무 작음" if not big_enough else
+                 "최근 30일 롱폼 없음" if recent_long < 1 else "분야 다름" if not on_topic else "직접 뺀 채널")] += 1
+    log(f"벤치마킹 후보 {len(check_ids)}곳 → {len(bench)}곳" + (" (빠진 이유: " + ", ".join(f"{k} {n}" for k, n in why.most_common()) + ")" if why else "")
+        + (f" · 기준 구독자 {max_subs:,}명 미만" if max_subs else ""))
     if not subs:  # 처음엔 겹친 키워드가 많은 순으로 8곳을 자동으로 구독 리스트에
         for ch in sorted(bench, key=lambda x: -len(x.get("keywords", [])))[:8]:
             subs[ch["id"]] = {"name": ch["name"]}
