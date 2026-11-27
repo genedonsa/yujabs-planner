@@ -77,3 +77,20 @@ def test_bundle_and_thumbnail(tmp_path: Path):
     txt = b.read_text(encoding="utf-8")
     assert "[0:38] hello" in txt and p.exists()
     assert ts(3817) == "1:03:37"
+
+
+def test_thumbnail_lines_strip_numbers(tmp_path: Path, monkeypatch):
+    import json as _j
+    from planner import run as R
+    (tmp_path / "원본썸네일").mkdir()
+    Image.new("RGB", (1280, 720), (90, 110, 140)).save(tmp_path / "원본썸네일" / "a.jpg")
+    (tmp_path / "refs.json").write_text(_j.dumps([{"id": "a"}]), encoding="utf-8")
+    seen = []
+    monkeypatch.setattr(R, "compose", lambda bg, l1, l2, out, tpl, style: seen.append((l1, l2)) or out)
+    R.make_thumbnails(tmp_path, "1. 구독자를 위해 / 영상 만들지 마세요!", {})
+    assert seen == [("구독자를 위해", "영상 만들지 마세요!")]
+
+
+def test_keywords_skip_generic_words():
+    kws = keywords(["유튜브 수익화 3가지", "유튜브 수익화 하지 마세요", "수익화 현실 총정리", "현실 총정리 가지"])
+    assert "수익화" in kws and not {"가지", "하지", "총정리", "현실"} & set(kws)
