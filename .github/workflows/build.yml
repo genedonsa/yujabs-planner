@@ -74,6 +74,20 @@ jobs:
         run: |
           find dist -path "*bin/deno*" -print | head
           find dist -name "cacert.pem" -print | head -1
+      # 실제로 만들어진 앱을 실행해서 암호 시트 읽기·도구 상태를 점검한다(회원 컴퓨터와 같은 조건).
+      - name: Self-test (mac)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          dist/CornBot.app/Contents/MacOS/CornBot "--selftest=$PWD/selftest.json"
+          cat selftest.json
+      - name: Self-test (windows)
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          Start-Process -Wait -FilePath dist\CornBot\CornBot.exe -ArgumentList "--selftest=$PWD\selftest.json"
+          Get-Content selftest.json
       - name: Zip (mac)
         if: runner.os == 'macOS'
         run: ditto -c -k --keepParent "dist/CornBot.app" "CornBot-${{ matrix.label }}.zip"
