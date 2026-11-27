@@ -31,7 +31,8 @@ def fingerprint(password: str) -> str:
     return hashlib.sha256((SALT + password.strip()).encode("utf-8")).hexdigest()
 
 
-def current_fingerprint(url: str = "") -> str:
+def current_fingerprints(url: str = "") -> set[str]:
+    """시트 A열 2행부터의 지문 전부. 여러 줄이면 그중 하나만 맞아도 통과(한/영 입력 실수 대비)."""
     url = url or ACCESS_URL
     if not url:
         raise AccessError("앱 설정에 암호 확인 주소가 없습니다. 운영자에게 문의해 주세요.")
@@ -41,15 +42,21 @@ def current_fingerprint(url: str = "") -> str:
             text = r.read().decode("utf-8-sig")
     except Exception as e:
         raise AccessError("암호를 확인하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.") from e
-    rows = list(csv.reader(io.StringIO(text)))
-    if len(rows) < 2 or not rows[1] or len(rows[1][0].strip()) != 64:
+    rows = list(csv.reader(io.StringIO(text)))[1:]
+    fps = {row[0].strip().lower() for row in rows if row and len(row[0].strip()) == 64}
+    if not fps:
         raise AccessError("암호 확인 시트의 형식이 올바르지 않습니다. 운영자에게 문의해 주세요.")
-    return rows[1][0].strip().lower()
+    return fps
+
+
+def current_fingerprint(url: str = "") -> str:
+    """하위 호환: 첫 번째 지문."""
+    return sorted(current_fingerprints(url))[0]
 
 
 def check(password: str, expected: str | None = None) -> bool:
-    """expected를 주면 그 값과 비교(테스트용), 없으면 시트에서 읽어 온다."""
+    """expected를 주면 그 값과 비교(테스트용), 없으면 시트의 지문들과 비교한다."""
     if not password or not password.strip():
         return False
-    expected = expected if expected is not None else current_fingerprint()
-    return fingerprint(password) == expected
+    allowed = {expected} if expected is not None else current_fingerprints()
+    return fingerprint(password) in allowed
