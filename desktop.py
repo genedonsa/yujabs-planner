@@ -46,7 +46,7 @@ class Api:
     def get_state(self) -> dict:
         s = R.load_settings()
         try:
-            ok, access_error = access.check(s.get("password", "")), ""
+            ok, access_error = access.check_saved(s), ""
         except access.AccessError as e:
             ok, access_error = False, str(e)
         last = None
@@ -56,8 +56,8 @@ class Api:
                 last = json.loads(f.read_text(encoding="utf-8"))
             except ValueError:
                 last = None
-        safe = {k: v for k, v in s.items() if k != "password"}
-        return {"code_ok": ok, "access_error": access_error, "had_password": bool(s.get("password")),
+        safe = {k: v for k, v in s.items() if k not in ("password", "password_fp")}
+        return {"code_ok": ok, "access_error": access_error, "had_password": bool(s.get("password_fp") or s.get("password")),
                 "settings": safe, "criteria": {**E.DEFAULT_CRITERIA, **(s.get("criteria") or {})},
                 "last": last, "version": VERSION, "home": str(E.HOME), "month": f"{datetime.now().year}년 {datetime.now().month}월"}
 
@@ -68,13 +68,14 @@ class Api:
             return {"ok": False, "error": str(e)}
         if ok:
             s = R.load_settings()
-            s["password"] = password.strip()
+            s["password_fp"] = access.fingerprint(password)
+            s.pop("password", None)
             R.save_settings(s)
         return {"ok": ok, "error": "" if ok else "암호가 맞지 않아요. 이번 달 암호인지 확인해 주세요."}
 
     def save_settings(self, data: dict) -> bool:
         s = R.load_settings()
-        s.update({k: v for k, v in data.items() if k != "password"})
+        s.update({k: v for k, v in data.items() if k not in ("password", "password_fp")})
         R.save_settings(s)
         return True
 
@@ -106,7 +107,7 @@ class Api:
         try:
             ch, vids = collect.channel_videos(url, 40)
         except Exception as e:
-            return {"ok": False, "error": f"채널을 찾지 못했어요. 주소를 확인해 주세요. ({str(e)[:60]})"}
+            return {"ok": False, "error": "채널을 찾지 못했어요. 유튜브에서 채널을 열고 주소창의 주소(https://www.youtube.com/@…)를 그대로 붙여 넣어 주세요." if "does not exist" in str(e) or "Unsupported URL" in str(e) or "is not a valid URL" in str(e) else f"채널을 읽지 못했어요. 잠시 뒤 다시 해 주세요. ({E._friendly(e)})"}
         ch["avg"] = int(E.baseline(vids, datetime.now().date(), 7))
         ch["video_count"] = len(vids)
         ch["keywords"] = ["직접 추가"]
@@ -208,6 +209,30 @@ class Api:
                 from planner import video as V
                 self.vprog["result"] = V.make(folder, style, log=self.vprog["log"].append,
                                               step=lambda k: self.vprog.__setitem__("step", k))
+            except Exception as e:
+                self.vprog["error"] = str(e)[:300]
+            finally:
+                self.vprog["running"] = False
+        threading.Thread(target=work, daemon=True).start()
+        return {"ok": True}
+
+    def video_edit_load(self, folder: str) -> dict:
+        from planner import video as V
+        try:
+            return {"ok": True, **V.load_edit(folder)}
+        except Exception as e:
+            return {"ok": False, "error": f"편집 정보를 찾지 못했어요. ({str(e)[:80]})"}
+
+    def video_rerender(self, folder: str, items: list) -> dict:
+        if self.vprog.get("running"):
+            return {"ok": False, "error": "이미 영상을 만들고 있어요."}
+        self.vprog = {"running": True, "step": "render", "log": [], "error": None, "result": None}
+
+        def work():
+            try:
+                from planner import video as V
+                self.vprog["result"] = V.rerender(folder, items, log=self.vprog["log"].append)
+                self.vprog["step"] = "done"
             except Exception as e:
                 self.vprog["error"] = str(e)[:300]
             finally:
