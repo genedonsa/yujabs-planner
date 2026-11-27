@@ -446,7 +446,8 @@ function renderBench(){$("benchBody").hidden=!R;$("benchEmpty").hidden=!!R;if(!R
   kws=[...R.keywords]; tagEditor($("kwEdit"),kws,"＋ 키워드 입력 후 Enter",()=>api.set_keywords(kws,R.auto_keywords));
   const fr=R.failed_roles||[];$("rfail").hidden=!fr.length;$("rfail").textContent=fr.length?`이 주소는 채널을 찾지 못해서 빼고 분석했어요: ${fr.join(", ")} · 설정 > 고치기에서 주소를 확인해 주세요.`:"";
   $("rlist").innerHTML=R.roles.map(c=>chRow(c,true)).join("")||'<p class="empty">롤모델 채널을 읽지 못했어요.</p>';
-  $("blist").innerHTML=R.bench.map(c=>chRow(c,false)).join("")||'<p class="empty">아직 찾은 채널이 없어요. 키워드를 더하거나 채널을 직접 추가해 보세요.</p>';
+  const why=Object.entries(R.bench_why||{}).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${k} ${n}곳`).join(", ");
+  $("blist").innerHTML=R.bench.map(c=>chRow(c,false)).join("")||`<p class="empty">아직 찾은 채널이 없어요. ${R.bench_checked?`검색으로 ${R.bench_checked}곳을 살펴봤는데 기준에 맞지 않았어요${why?` (${esc(why)})`:""}. `:""}키워드를 바꾸거나, 롤모델을 더 넣거나, 채널을 직접 추가해 보세요.</p>`;
   $("benchN").textContent=R.bench.length+"곳";$("benchSub").textContent=`그중 구독 리스트 ${R.bench.filter(c=>c.subscribed).length}곳`;
   document.querySelectorAll(".ysub[data-cid]").forEach(b=>b.onclick=async()=>{const c=R.bench.find(x=>x.id===b.dataset.cid);c.subscribed=!c.subscribed;await api.toggle_sub(c.id,c.name,c.subscribed);renderBench();});}
 $("addSubBtn").onclick=async()=>{const u=$("addSub").value.trim();if(!u)return;$("addSubBtn").disabled=true;const r=await api.add_sub_url(u);$("addSubBtn").disabled=false;
