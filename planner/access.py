@@ -15,6 +15,12 @@ import io
 import os
 import urllib.request
 
+from .net import ssl_context
+
+
+def urlopen(req, timeout: int = 15):
+    return urllib.request.urlopen(req, timeout=timeout, context=ssl_context())
+
 SALT = "yujabs-planner-v1:"
 # 예: https://docs.google.com/spreadsheets/d/<시트ID>/export?format=csv&gid=0
 ACCESS_URL = os.environ.get(
@@ -38,7 +44,7 @@ def current_fingerprints(url: str = "") -> set[str]:
         raise AccessError("앱 설정에 암호 확인 주소가 없습니다. 운영자에게 문의해 주세요.")
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "yujabs-planner"})
-        with urllib.request.urlopen(req, timeout=15) as r:
+        with urlopen(req, timeout=15) as r:
             text = r.read().decode("utf-8-sig")
     except Exception as e:
         raise AccessError("암호를 확인하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.") from e

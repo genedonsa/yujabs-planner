@@ -17,9 +17,11 @@ from pathlib import Path
 
 from yt_dlp import YoutubeDL
 
+from .net import js_runtimes, urlopen
 from .surge import Video
 
-BASE_OPTS = {"quiet": True, "no_warnings": True, "skip_download": True}
+BASE_OPTS = {"quiet": True, "no_warnings": True, "skip_download": True,
+             "js_runtimes": js_runtimes()}
 
 
 def _date(s: str | None) -> date | None:
@@ -75,7 +77,7 @@ def search(query: str, n: int = 20) -> list[Video]:
 
 def _fetch(url: str) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=30) as r:
+    with urlopen(req, timeout=30) as r:
         return r.read()
 
 
