@@ -29,9 +29,11 @@ def test_password_from_sheet_csv(monkeypatch):
     class R(io.BytesIO):
         def __enter__(self): return self
         def __exit__(self, *a): pass
-    monkeypatch.setattr(access.urllib.request, "urlopen", lambda *a, **k: R(f"지문,메모\n{fp},12월\n".encode()))
+    fp2 = access.fingerprint("rufdnf")
+    monkeypatch.setattr(access.urllib.request, "urlopen", lambda *a, **k: R(f"지문,메모\n{fp},12월\n{fp2},영문 입력\n".encode()))
     monkeypatch.setattr(access, "ACCESS_URL", "http://sheet")
     assert access.check("겨울")
+    assert access.check("rufdnf")
     assert not access.check("가을")
 
 
