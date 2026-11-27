@@ -54,7 +54,14 @@ def _run(args: list[str], log: Callable[[str], None] | None = None) -> None:
     flags = 0x08000000 if sys.platform == "win32" else 0  # 윈도우: 검은 창 안 띄우기
     p = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace", creationflags=flags)
     if p.returncode != 0:
-        raise RuntimeError("영상 처리 중 오류: " + (p.stderr or "")[-400:])
+        err = p.stderr or ""
+        try:  # 전체 기록은 파일로 (문의할 때 보내 달라고 할 수 있게)
+            (Path.home() / "유잡스 기획").mkdir(exist_ok=True)
+            (Path.home() / "유잡스 기획" / "영상오류.txt").write_text(" ".join(args) + "\n\n" + err, encoding="utf-8")
+        except OSError:
+            pass
+        lines = [l for l in err.splitlines() if ("rror" in l or "Invalid" in l or "No such" in l) and len(l) < 300]
+        raise RuntimeError("영상 처리 중 오류: " + (" / ".join(lines[-3:]) or err[-300:]))
 
 
 def _duration(path: Path) -> float:
@@ -346,7 +353,7 @@ def make(src_folder: str, style_name: str = "유잡스 기본", model_size: str 
                                                  "intervals": ivs, "items": its, "words": len(words),
                                                  "kept": len(kept)}, ensure_ascii=False, indent=1), encoding="utf-8")
     step("render"); log("자막 넣고 음량 맞춰서 최종본 만드는 중…")
-    res = _render(joined, ivs, place(its, ivs), st, out, work)
+    res = _render(joined, ivs, place(its, ivs), st, out, work, log)
     step("done")
     return {**res, "before": round(float(total), 1)}
 
@@ -377,32 +384,69 @@ def rerender(out_folder: str, edited: list[dict], log: Callable[[str], None] = p
     if not ivs:
         raise RuntimeError("남은 장면이 없어요. 한 줄 이상은 남겨 주세요.")
     log("고친 자막으로 다시 만드는 중…")
-    res = _render(Path(d["source"]), ivs, place(keep, ivs), st, out, work)
+    res = _render(Path(d["source"]), ivs, place(keep, ivs), st, out, work, log)
     d["intervals"], d["items"] = ivs, keep
     (work / "edit.json").write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
     return {**res, "before": round(float(d["total"]), 1)}
 
 
-def _render(joined: Path, ivs: list[tuple[float, float]], subs, st: dict, out: Path, work: Path) -> dict:
+CHUNK = 40  # 한 번에 자르는 구간 수. 긴 영상(구간 수백 개)을 한 번에 자르면 ffmpeg가 메모리 부족으로 멈춘다.
+
+
+def _fc(ff: str, args_before: list[str], script: Path, args_after: list[str]) -> None:
+    """필터 스크립트 파일로 ffmpeg 실행 (ffmpeg 7.1+ 방식, 안 되면 옛 방식)."""
+    try:
+        _run([ff, *args_before, "-/filter_complex", str(script), *args_after])
+    except RuntimeError as e:
+        if "filter_complex" not in str(e) and "Option not found" not in str(e) and "Unrecognized" not in str(e):
+            raise
+        _run([ff, *args_before, "-filter_complex_script", str(script), *args_after])
+
+
+def _render(joined: Path, ivs: list[tuple[float, float]], subs, st: dict, out: Path, work: Path,
+            log: Callable[[str], None] = lambda m: None) -> dict:
+    """1) 남길 구간을 CHUNK개씩 잘라 조각 파일로 2) 조각을 이어 붙이고 3) 자막·음량을 넣어 최종본."""
     ff = ffmpeg()
     srt, ass = write_subs(subs, out, st)
-    sel = "+".join(f"between(t,{a},{b})" for a, b in ivs)
+    parts_dir = work / "조각"
+    parts_dir.mkdir(parents=True, exist_ok=True)
+    for old in parts_dir.glob("*.mp4"):
+        old.unlink()
+    chunks = [ivs[i:i + CHUNK] for i in range(0, len(ivs), CHUNK)]
+    parts = []
+    for n, ch in enumerate(chunks):
+        log(f"자르는 중… {n + 1}/{len(chunks)}")
+        a0 = max(0.0, ch[0][0] - 0.05)
+        dur = ch[-1][1] - a0 + 0.1
+        sel = "+".join(f"between(t,{a - a0:.3f},{b - a0:.3f})" for a, b in ch)
+        script = work / "cut_filter.txt"
+        script.write_text(
+            f"[0:v]select='{sel}',setpts=N/FRAME_RATE/TB,scale=1920:1080:force_original_aspect_ratio=decrease,"
+            f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=30,format=yuv420p[v];"
+            f"[0:a]aselect='{sel}',asetpts=N/SR/TB,aresample=48000[a]", encoding="utf-8")
+        part = parts_dir / f"{n:04d}.mp4"
+        _fc(ff, ["-y", "-ss", f"{a0:.3f}", "-t", f"{dur:.3f}", "-i", str(joined)], script,
+            ["-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "16",
+             "-c:a", "aac", "-b:a", "256k", "-ar", "48000", str(part)])
+        parts.append(part)
+    listing = work / "조각목록.txt"
+    listing.write_text("".join("file '" + p.resolve().as_posix().replace("'", "'\\''") + "'\n" for p in parts),
+                       encoding="utf-8")
+    cut = work / "잘린영상.mp4"
+    _run([ff, "-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy", str(cut)])
+
+    log("자막 넣고 음량 맞추는 중…")
     fonts = net.BASE / "ui" / "fonts"
     ass_arg = str(ass).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
     fonts_arg = str(fonts).replace("\\", "/").replace(":", "\\:")
     script = work / "filter.txt"
-    script.write_text(
-        f"[0:v]select='{sel}',setpts=N/FRAME_RATE/TB,scale=1920:1080:force_original_aspect_ratio=decrease,"
-        f"pad=1920:1080:(ow-iw)/2:(oh-ih)/2,ass='{ass_arg}':fontsdir='{fonts_arg}'[v];"
-        f"[0:a]aselect='{sel}',asetpts=N/SR/TB,loudnorm=I={st['loudness']}:TP=-1.5:LRA=11[a]", encoding="utf-8")
+    script.write_text(f"[0:v]ass='{ass_arg}':fontsdir='{fonts_arg}'[v];"
+                      f"[0:a]loudnorm=I={st['loudness']}:TP=-1.5:LRA=11[a]", encoding="utf-8")
     final = out / "최종.mp4"
-    enc = ["-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-           "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(final)]
-    try:  # ffmpeg 7.1 이후 방식
-        _run([ff, "-y", "-i", str(joined), "-/filter_complex", str(script), *enc])
-    except RuntimeError as e:  # 옛 ffmpeg
-        if "filter_complex" not in str(e) and "Option not found" not in str(e) and "Unrecognized" not in str(e):
-            raise
-        _run([ff, "-y", "-i", str(joined), "-filter_complex_script", str(script), *enc])
+    _fc(ff, ["-y", "-i", str(cut)], script,
+        ["-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+         "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(final)])
+    for p in parts:
+        p.unlink(missing_ok=True)
     return {"final": str(final), "srt": str(srt), "folder": str(out),
             "after": round(float(sum(b - a for a, b in ivs)), 1), "cuts": len(ivs), "lines": len(subs)}
