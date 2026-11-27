@@ -44,7 +44,10 @@ jobs:
         shell: bash
         env:
           PYTHONUTF8: "1"
-        run: python tests/video/real.py run clip res 2>&1 | tee res_log.txt; mkdir -p res; cp res_log.txt res/log_${{ runner.os }}.txt
+        run: |
+          mkdir -p res
+          python tests/video/real.py run clip res > res/log_${{ runner.os }}.txt 2>&1 || echo "exit $?" >> res/log_${{ runner.os }}.txt
+          cat res/log_${{ runner.os }}.txt
       - name: App selftest (released app)
         if: ${{ github.event_name == 'workflow_run' }}
         continue-on-error: true
