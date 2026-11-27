@@ -1,7 +1,8 @@
 name: video-test
 
-# 영상 만들기 실제 점검: 맥에서 한국어 말 영상을 만들고(say), 맥·윈도우에서 진짜 받아쓰기 모델로 편집해 본다.
-# 새로 나온 앱(릴리스)도 내려받아 영상 도구가 앱 안에 들어 있는지 selftest로 본다.
+# 새 버전 검문소. build가 '시험판'(prerelease)으로 올린 앱을 맥(Apple·Intel)·윈도우에서
+# ① 실제로 내려받아 자체 점검하고 ② 진짜 받아쓰기 모델로 영상 편집을 해 본다.
+# 모두 통과해야 '최신 버전'으로 바꿔서 회원 설치·자동 업데이트에 나간다. (하나라도 실패하면 회원은 이전 버전 그대로)
 # 결과는 video-results 브랜치에 올린다.
 on:
   workflow_dispatch:
@@ -30,9 +31,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        include:
+          - { os: macos-latest, zip: CornBot-macOS.zip, tag: mac }
+          - { os: macos-15-intel, zip: CornBot-macOS-Intel.zip, tag: mac-intel }
+          - { os: windows-latest, zip: CornBot-windows.zip, tag: win }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 40
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: "1"
+      TAG: v0.2.${{ github.event.workflow_run.run_number }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -42,28 +49,30 @@ jobs:
         with: { name: clip, path: clip }
       - name: Edit
         shell: bash
-        env:
-          PYTHONUTF8: "1"
         run: |
           mkdir -p res
-          python tests/video/real.py run clip res > res/log_${{ runner.os }}.txt 2>&1 || echo "exit $?" >> res/log_${{ runner.os }}.txt
-          cat res/log_${{ runner.os }}.txt
-      - name: App selftest (released app)
+          python tests/video/real.py run clip res > res/log_${{ matrix.tag }}.txt 2>&1 || echo "exit $?" >> res/log_${{ matrix.tag }}.txt
+          cat res/log_${{ matrix.tag }}.txt
+          for f in res/report_*.json; do [ -f "$f" ] && mv "$f" "res/report_${{ matrix.tag }}.json"; done; true
+      - name: App selftest (this build's test release)
         if: ${{ github.event_name == 'workflow_run' }}
-        continue-on-error: true
         shell: bash
         run: |
+          curl -fsSL -o app.zip "https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ matrix.zip }}"
           if [ "$RUNNER_OS" = "macOS" ]; then
-            curl -fsSL -o app.zip https://github.com/genedonsa/yujabs-planner/releases/latest/download/CornBot-macOS.zip
-            ditto -x -k app.zip appx && appx/CornBot.app/Contents/MacOS/CornBot "--selftest=$PWD/res/selftest_mac.json"
+            ditto -x -k app.zip appx && appx/CornBot.app/Contents/MacOS/CornBot "--selftest=$PWD/res/selftest_${{ matrix.tag }}.json"
           else
-            curl -fsSL -o app.zip https://github.com/genedonsa/yujabs-planner/releases/latest/download/CornBot-windows.zip
-            powershell -Command "Expand-Archive app.zip appx; Start-Process -Wait -FilePath appx\CornBot.exe -ArgumentList '--selftest=$(cygpath -w $PWD)\res\selftest_win.json'"
+            powershell -Command "Expand-Archive app.zip appx; Start-Process -Wait -FilePath appx\CornBot.exe -ArgumentList '--selftest=$(cygpath -w $PWD)\res\selftest_${{ matrix.tag }}.json'"
           fi
+          cat res/selftest_${{ matrix.tag }}.json || true
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: res-${{ runner.os }}
+          name: res-${{ matrix.tag }}
           path: res
+      - name: Gate
+        shell: bash
+        run: python tests/video/gate.py res ${{ github.event_name == 'workflow_run' && 'app' || '' }}
 
   publish:
     needs: edit
@@ -76,7 +85,19 @@ jobs:
           TOKEN: ${{ github.token }}
         run: |
           mkdir -p /tmp/res && cp -R all/. /tmp/res/ 2>/dev/null || true
+          echo "${{ needs.edit.result }}" > /tmp/res/GATE.txt
           cd /tmp/res && ls -la && git init -q && git checkout -q -b video-results
           git config user.name "cornbot-video"; git config user.email "video@users.noreply.github.com"
           git add -A && git commit -q -m "video ${{ github.run_number }}" --allow-empty
           git push -f -q "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" video-results
+
+  # 검문 통과 → 시험판을 '최신 버전'으로. 이때부터 한 줄 설치·자동 업데이트가 이 버전을 받는다.
+  promote:
+    needs: edit
+    if: ${{ github.event_name == 'workflow_run' && needs.edit.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v0.2.${{ github.event.workflow_run.run_number }}
+        run: gh release edit "$TAG" --repo "${{ github.repository }}" --prerelease=false --latest

@@ -130,7 +130,9 @@ jobs:
           tag_name: v0.2.${{ github.run_number }}
           name: 콘봇 v0.2.${{ github.run_number }}
           body_path: release_notes.md
-          make_latest: true
+          # 바로 회원에게 가지 않게 '시험판'으로 올린다. video-test가 맥·윈도우에서 점검하고 통과하면 최신 버전으로 바꾼다.
+          prerelease: true
+          make_latest: false
           files: |
             dist/*.zip
             install/install.sh
