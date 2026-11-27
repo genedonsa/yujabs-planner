@@ -36,7 +36,7 @@ def _date(s: str | None) -> date | None:
 def _to_video(e: dict, channel_id: str = "", channel_name: str = "") -> Video:
     dur = e.get("duration")
     url = e.get("url") or ""
-    is_short = "/shorts/" in url or (dur is not None and dur <= 60)
+    is_short = "/shorts/" in url or (dur is not None and dur <= 180)  # 쇼츠는 최대 3분
     upload = _date(e.get("upload_date"))
     if not upload and e.get("timestamp"):
         upload = datetime.fromtimestamp(e["timestamp"]).date()
@@ -130,7 +130,9 @@ def video_detail(video_url: str, max_comments: int = 40) -> dict:
         "description": info.get("description") or "",
         "thumbnail": f"https://i.ytimg.com/vi/{info.get('id')}/maxresdefault.jpg",
         "comment_count": info.get("comment_count"),
-        "comments": [{"text": c.get("text", ""), "likes": c.get("like_count") or 0} for c in comments[:max_comments]],
+        "comments": [{"text": c.get("text", ""), "likes": c.get("like_count") or 0,
+                      "pinned": bool(c.get("is_pinned")), "by_uploader": bool(c.get("author_is_uploader"))}
+                     for c in comments[:max_comments]],
         "transcript": transcript(info),
     }
 

@@ -17,6 +17,11 @@ def _n(x) -> str:
     return f"{x:,}" if isinstance(x, int) else str(x or "-")
 
 
+def _d(s) -> str:
+    s = str(s or "")
+    return f"{s[:4]}-{s[4:6]}-{s[6:]}" if len(s) == 8 and s.isdigit() else (s or "-")
+
+
 def write_bundle(out_dir: Path, me: dict, my_top: list, refs: list[dict], today: date | None = None) -> tuple[Path, Path]:
     """
     me: {name, url, audience(내 시청자·상품 한 줄), notes(내 경험 메모)}
@@ -31,20 +36,22 @@ def write_bundle(out_dir: Path, me: dict, my_top: list, refs: list[dict], today:
           f"- 내 경험 메모: {me.get('notes') or '(비어 있음 — 기획안에는 질문으로 남길 것)'}", "",
           "### 내 채널 조회수 상위 (썸네일 스타일 기준)"]
     for v in my_top:
-        L.append(f"- {v.title} · 조회 {_n(v.views)} · {v.url}")
+        L.append(f"- {v.title} · 조회 {_n(v.views)} · {v.url} · 썸네일 https://i.ytimg.com/vi/{v.id}/hqdefault.jpg")
     L.append("")
     for i, r in enumerate(refs, 1):
         v, d = r["video"], r["detail"]
         L += [f"## 레퍼런스 {i}. {d.get('title')}",
               f"- 링크: https://youtu.be/{d.get('id')}",
-              f"- 채널: {d.get('channel')} · 길이 {ts(d.get('duration') or 0)} · 조회 {_n(d.get('views'))} · 업로드 {d.get('upload_date')}",
-              f"- 채널 평소(중앙값) 대비 {r['ratio']:.1f}배 (평소 {_n(int(r['baseline']))}회)",
+              f"- 채널: {d.get('channel')} · 길이 {ts(d.get('duration') or 0)} · 조회 {_n(d.get('views'))} · 업로드 {_d(d.get('upload_date'))}",
+              f"- 채널 평소 대비 {r['ratio']:.1f}배 (평소 {_n(int(r['baseline']))}회 = 최근 30편 중 최근 1주 영상을 뺀 평균)",
               f"- 고른 이유: {r.get('why_picked','')}",
               f"- 썸네일: {d.get('thumbnail')}",
               "", "### 설명란", (d.get("description") or "")[:1500], "",
               f"### 댓글 상위 {len(d.get('comments') or [])}개 (총 {_n(d.get('comment_count'))}개)"]
         for c in d.get("comments") or []:
-            L.append(f"- (좋아요 {c['likes']}) {c['text'].replace(chr(10),' ')[:300]}")
+            tag = "고정 댓글 · " if c.get("pinned") else ""
+            tag += "채널 주인 · " if c.get("by_uploader") else ""
+            L.append(f"- ({tag}좋아요 {c['likes']}) {c['text'].replace(chr(10),' ')[:300]}")
         L += ["", "### 자막 (시간 포함)"]
         tr = d.get("transcript") or []
         if not tr:

@@ -51,7 +51,7 @@ def run(s: dict, log: Callable[[str], None] = print, max_search_channels: int = 
         except Exception as e:  # 채널 하나가 실패해도 계속
             log(f"  건너뜀 ({e})")
             continue
-        base = channel_baseline(vids)
+        base = channel_baseline(vids, today)
         baselines[ch["id"]] = base
         candidates += [(v, base) for v in vids]
         titles += [v.title for v in vids]
@@ -74,13 +74,22 @@ def run(s: dict, log: Callable[[str], None] = print, max_search_channels: int = 
             except Exception:
                 continue
             checked += 1
-            baselines[v.channel_id] = channel_baseline(cvids)
+            baselines[v.channel_id] = channel_baseline(cvids, today)
             candidates += [(cv, baselines[v.channel_id]) for cv in cvids]
 
     step("pick")
-    picked = pick(candidates, today, top=4, min_ratio=float(s.get("min_ratio", 2)))
+    shown = set()  # 지난주까지 이미 보여준 영상은 빼기(주간 기록 중복 제외와 같음)
+    if HOME.exists():
+        for d in HOME.iterdir():
+            f = d / "refs.json"
+            if d.is_dir() and d.name != today.isoformat() and f.exists():
+                try:
+                    shown |= {r["id"] for r in json.loads(f.read_text(encoding="utf-8"))}
+                except (OSError, ValueError, KeyError):
+                    pass
+    picked = pick(candidates, today, top=4, min_ratio=float(s.get("min_ratio", 2)), exclude=shown)
     if not picked:
-        raise RuntimeError("최근 2주 안에 평소보다 2배 이상 나온 영상을 찾지 못했습니다. 롤모델 채널을 더 넣거나 기준 배수를 낮춰 보세요.")
+        raise RuntimeError("최근 1~2주 안에 평소보다 2배 이상 나온 영상을 찾지 못했습니다. 롤모델 채널을 더 넣거나 기준 배수를 낮춰 보세요.")
 
     step("detail")
     refs = []
@@ -94,7 +103,8 @@ def run(s: dict, log: Callable[[str], None] = print, max_search_channels: int = 
         except Exception as e:
             log(f"  썸네일 저장 실패 ({e})")
         refs.append({"video": v, "ratio": r, "baseline": baselines.get(v.channel_id, 0),
-                     "detail": detail, "why_picked": f"평소 대비 {r:.1f}배, {(today - v.upload_date).days}일 전 업로드"})
+                     "detail": detail, "why_picked": f"평소 대비 {r:.1f}배, {(today - v.upload_date).days}일 전 업로드"
+                     + (" (1주 안에 4편이 안 돼 2주 안에서 보충)" if v.extra.get("보충") else "")})
 
     step("bundle")
     me = {"name": me_ch.get("name"), "url": s["my_channel"], "audience": s.get("audience", ""), "notes": s.get("notes", "")}
@@ -104,7 +114,8 @@ def run(s: dict, log: Callable[[str], None] = print, max_search_channels: int = 
         "views": r["detail"].get("views") or r["video"].views, "ratio": round(r["ratio"], 1),
         "upload_date": r["video"].upload_date.isoformat() if r["video"].upload_date else "",
         "duration": r["detail"].get("duration"), "comments": r["detail"].get("comment_count"),
-        "has_transcript": bool(r["detail"].get("transcript")), "url": r["video"].url} for r in refs],
+        "has_transcript": bool(r["detail"].get("transcript")), "url": r["video"].url,
+        "baseline": int(r["baseline"]), "filled": bool(r["video"].extra.get("보충"))} for r in refs],
         ensure_ascii=False, indent=2), encoding="utf-8")
     step("done"); log("완료!")
     return {"folder": str(out_dir), "bundle": str(bundle), "prompt": str(prompt)}
