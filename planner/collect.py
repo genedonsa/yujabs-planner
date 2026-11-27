@@ -61,8 +61,14 @@ def channel_videos(channel_url: str, limit: int = 60) -> tuple[dict, list[Video]
             "extractor_args": {"youtubetab": {"approximate_date": [""]}}}
     with YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
-    ch = {"id": info.get("channel_id") or info.get("id"), "name": info.get("channel") or info.get("title"),
-          "url": channel_url}
+    thumbs = info.get("thumbnails") or []
+    avatar = next((t.get("url") for t in thumbs if (t.get("id") or "").startswith("avatar")), None) \
+        or next((t.get("url") for t in thumbs if t.get("width") and t.get("width") == t.get("height")), None)
+    ch = {"id": info.get("channel_id") or info.get("id"),
+          "name": (info.get("channel") or info.get("title") or "").replace(" - Videos", "").replace(" - 동영상", ""),
+          "url": channel_url, "handle": info.get("uploader_id") or "",
+          "subs": info.get("channel_follower_count"), "desc": (info.get("description") or "")[:300],
+          "avatar": avatar}
     vids = [_to_video(e, ch["id"], ch["name"]) for e in info.get("entries") or [] if e]
     return ch, vids
 
@@ -135,6 +141,14 @@ def video_detail(video_url: str, max_comments: int = 40) -> dict:
                      for c in comments[:max_comments]],
         "transcript": transcript(info),
     }
+
+
+def video_transcript(video_url: str) -> dict:
+    """댓글 없이 제목·길이·자막만 (내 경험 익히기용, 빠르게)."""
+    with YoutubeDL({**BASE_OPTS}) as ydl:
+        info = ydl.extract_info(video_url, download=False)
+    return {"id": info.get("id"), "title": info.get("title"), "duration": info.get("duration"),
+            "description": info.get("description") or "", "transcript": transcript(info)}
 
 
 def save_thumbnail(video_id: str, dest: Path) -> Path:
