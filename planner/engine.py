@@ -208,8 +208,9 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     kws = merge_keywords(auto, s)
     role_ids = {r["id"] for r in roles}
     # 롤모델 칸에 내 채널을 넣었으면 '나보다 작은 채널'만 찾으면 거의 없다 → 나와 비슷한 규모(5배까지)로 찾는다
-    role_subs = [r["subs"] * (5 if r.get("is_me") else 1) for r in roles if r.get("subs")]
-    role_avg = [r["avg"] * (5 if r.get("is_me") else 1) for r in roles if r.get("avg")]
+    # 내 채널이 아직 작으면(구독자 수백 명) 5배로도 거의 없으니, 최소 구독자 10만·평소 조회 5만까지는 본보기로 삼는다
+    role_subs = [max(r["subs"] * 5, 100_000) if r.get("is_me") else r["subs"] for r in roles if r.get("subs")]
+    role_avg = [max(r["avg"] * 5, 50_000) if r.get("is_me") else r["avg"] for r in roles if r.get("avg")]
     max_subs = min(role_subs) if role_subs else None
     max_avg = min(role_avg) if role_avg else None
 
@@ -294,6 +295,9 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
                 continue
             if source == "키워드 검색" and h["id"] not in found_vids:
                 continue  # 검색으로만 알게 된 채널은 검색에 걸린 그 영상만 (채널의 다른 주제 영상은 뺌)
+            if source == "키워드 검색" and yt_field and h["id"] not in found_by_format and \
+                    not any(w in h["title"].lower() for w in YOUTUBE_FIELD_WORDS | {"유튜브", "youtube"}):
+                continue  # 유튜브 교육 분야인데 제목에 유튜브 얘기가 없는 영상(퇴직·여행 등)은 뺀다
             seen.add(h["id"])
             h["source"] = source
             h["format"] = _tag_format(h, formats, found_by_format)
