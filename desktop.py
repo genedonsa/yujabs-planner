@@ -40,6 +40,7 @@ class Api:
     def __init__(self):
         self.progress = {"running": False, "step": None, "log": [], "error": None, "result": None}
         self.window = None
+        self.vprog = {"running": False, "step": None, "log": [], "error": None, "result": None}
 
     # ---- 시작 / 설정 ----
     def get_state(self) -> dict:
@@ -182,6 +183,43 @@ class Api:
     def open_claude(self) -> None:
         webbrowser.open("https://claude.ai/new")
 
+    # ---- 영상 만들기 ----
+    def pick_folder(self) -> str:
+        try:
+            win = webview.windows[0]
+            res = win.create_file_dialog(webview.FOLDER_DIALOG)
+        except Exception:
+            return ""
+        return res[0] if res else ""
+
+    def video_styles(self) -> list:
+        from planner import video as V
+        return list(V.STYLES)
+
+    def start_video(self, folder: str, style: str) -> dict:
+        if self.vprog.get("running"):
+            return {"ok": False, "error": "이미 영상을 만들고 있어요."}
+        if not folder or not Path(folder).is_dir():
+            return {"ok": False, "error": "촬영한 영상이 들어 있는 폴더를 먼저 골라 주세요."}
+        self.vprog = {"running": True, "step": "join", "log": [], "error": None, "result": None}
+
+        def work():
+            try:
+                from planner import video as V
+                self.vprog["result"] = V.make(folder, style, log=self.vprog["log"].append,
+                                              step=lambda k: self.vprog.__setitem__("step", k))
+            except Exception as e:
+                self.vprog["error"] = str(e)[:300]
+            finally:
+                self.vprog["running"] = False
+        threading.Thread(target=work, daemon=True).start()
+        return {"ok": True}
+
+    def video_progress(self) -> dict:
+        p = dict(self.vprog)
+        p["log"] = p["log"][-4:]
+        return p
+
     # ---- 업데이트 ----
     def check_update(self) -> dict:
         try:
@@ -260,8 +298,7 @@ def selftest(out: str) -> None:
         rep["certifi"] = f"ERR {e}"
     try:
         rep["fingerprints"] = len(access.current_fingerprints())
-        rep["password_유잡스02"] = access.check("유잡스02")
-        rep["password_dbwkqtm02"] = access.check("dbwkqtm02")
+        rep["sheet_ok"] = rep["fingerprints"] > 0  # 암호 원문은 코드에 두지 않는다(공개 저장소)
     except Exception as e:
         rep["access_error"] = f"{type(e).__name__}: {e}"
     try:
@@ -285,6 +322,15 @@ def selftest(out: str) -> None:
         rep["youtube_channel"] = f"ok {ch.get('name')} {len(vids)}편, 첫 영상 업로드일 {vids[0].upload_date if vids else None}"
     except Exception as e:
         rep["youtube_channel"] = f"ERR {type(e).__name__}: {str(e)[:200]}"
+    try:  # 영상 만들기 도구가 앱 안에 들어 있는지
+        from planner import video as V
+        ff = V.ffmpeg()
+        rep["ffmpeg"] = subprocess.run([ff, "-version"], capture_output=True, text=True, timeout=30).stdout.split("\n")[0]
+        import faster_whisper
+        import ctranslate2
+        rep["whisper"] = f"{faster_whisper.__version__} / ct2 {ctranslate2.__version__}"
+    except Exception as e:
+        rep["video_error"] = f"{type(e).__name__}: {str(e)[:200]}"
     Path(out).write_text(json.dumps(rep, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
