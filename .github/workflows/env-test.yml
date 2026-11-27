@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, macos-15, macos-latest, macos-15-intel]
+        os: [macos-15, macos-latest, macos-15-intel]
     runs-on: ${{ matrix.os }}
     steps:
       - name: 1. 한 줄 설치 (회원과 똑같이)

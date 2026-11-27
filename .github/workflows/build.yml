@@ -9,6 +9,11 @@ on:
 # - 파이썬·라이브러리·인증서: PyInstaller가 앱에 포함
 # - deno(유튜브 읽기에 필요한 실행기): bin/ 에 포함
 # - 윈도우 WebView2 설치기: bin/ 에 포함, 없을 때만 앱이 조용히 설치
+# 여러 번 연달아 올려도 마지막 것만 끝까지 만들어 '최신 버전'이 뒤섞이지 않게 한다.
+concurrency:
+  group: build-main
+  cancel-in-progress: true
+
 jobs:
   build:
     strategy:
