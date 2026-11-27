@@ -63,7 +63,7 @@ def run(clip_dir: Path, res: Path) -> None:
         (res / "자막.srt").write_text(srt, encoding="utf-8")
         text = " ".join(l for l in srt.splitlines() if l and not l[0].isdigit() and "-->" not in l)
         rep["checks"] = {
-            "줄어듦": rep["result"]["after"] < rep["result"]["before"] * 0.85,
+            "줄어듦": bool(rep["result"]["after"] < rep["result"]["before"] * 0.85),
             "인사말 남음": "안녕하세요" in text,
             "다시 지워짐": "다시" not in text,
             "끊긴 문장 지워짐": text.count("오늘은") == 1,
@@ -79,8 +79,8 @@ def run(clip_dir: Path, res: Path) -> None:
         p = subprocess.run([ff, "-i", final, "-af", "loudnorm=print_format=json", "-f", "null", "-"],
                            capture_output=True, text=True)
         rep["loudness"] = p.stderr[p.stderr.rfind("{"):].split('"input_i" : "')[-1].split('"')[0]
-    (res / f"report_{sys.platform}.json").write_text(json.dumps(rep, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(json.dumps({k: v for k, v in rep.items() if k != "words"}, ensure_ascii=False, indent=1))
+    (res / f"report_{sys.platform}.json").write_text(json.dumps(rep, ensure_ascii=False, indent=1, default=lambda o: o.item() if hasattr(o, "item") else str(o)), encoding="utf-8")
+    print(json.dumps({k: v for k, v in rep.items() if k != "words"}, ensure_ascii=False, indent=1, default=str))
 
 
 if __name__ == "__main__":
