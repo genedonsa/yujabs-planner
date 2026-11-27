@@ -20,7 +20,7 @@ import webview
 from planner import access
 from planner import run as R
 
-APP_NAME = "유잡스 기획"
+APP_NAME = "콘봇"
 BASE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 UI = BASE / "ui" / "index.html"
 STEPS = ["me", "models", "search", "pick", "detail", "bundle", "done"]
