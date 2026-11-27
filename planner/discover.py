@@ -1,0 +1,32 @@
+"""영상 제목에서 버티컬 키워드를 뽑는다. 형태소 분석기 없이 단순 빈도 + 불용어."""
+from __future__ import annotations
+
+import re
+from collections import Counter
+
+STOPWORDS = set("""
+영상 유튜브 채널 구독 구독자 조회수 방법 이유 진짜 정말 이거 그냥 무조건 절대 하는 하면 했던 하고 해서
+있는 없는 되는 안되는 모든 지금 오늘 처음 최고 최악 공개 결과 후기 리뷰 브이로그 vlog feat ft shorts
+the a an to of and in for on with my your how why what is are you i this that
+""".split())
+
+PARTICLES = ("으로", "에서", "에게", "까지", "부터", "보다", "처럼", "이랑", "하고", "은", "는", "이", "가", "을", "를", "의", "에", "도", "만", "로", "와", "과")
+
+
+def _strip_particle(word: str) -> str:
+    for p in PARTICLES:
+        if len(word) > len(p) + 1 and word.endswith(p):
+            return word[: -len(p)]
+    return word
+
+
+def keywords(titles: list[str], top: int = 8) -> list[str]:
+    counter: Counter[str] = Counter()
+    for t in titles:
+        t = re.sub(r"\(.*?\)|\[.*?\]|#\S+", " ", t)
+        for raw in re.findall(r"[가-힣A-Za-z]{2,}", t):
+            w = _strip_particle(raw.lower())
+            if w in STOPWORDS or len(w) < 2:
+                continue
+            counter[w] += 1
+    return [w for w, n in counter.most_common(top * 2) if n >= 2][:top] or [w for w, _ in counter.most_common(top)]
