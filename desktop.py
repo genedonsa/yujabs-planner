@@ -148,7 +148,7 @@ class Api:
         except Exception as e:
             return {"ok": False, "error": f"영상 정보를 가져오지 못했어요. ({str(e)[:80]})"}
         self.copy_text(text)
-        return {"ok": True, "folder": str(folder), "chars": len(text)}
+        return {"ok": True, "folder": str(folder), "chars": len(text), "partial": "유튜브가 이번엔 영상 페이지를" in text}
 
     def save_plan(self, folder: str, md: str) -> bool:
         Path(folder).mkdir(parents=True, exist_ok=True)
