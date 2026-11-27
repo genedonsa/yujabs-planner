@@ -82,7 +82,7 @@ def transcribe(audio: Path, model_size: str, log: Callable[[str], None]) -> list
         for j, w in enumerate(sg.words or []):
             t = w.word.strip()
             if t:
-                words.append(W(w.start, w.end, t, i, j == 0 or w.word[:1] == " "))
+                words.append(W(float(w.start), float(w.end), t, i, j == 0 or w.word[:1] == " "))
         if i % 10 == 0:
             log(f"받아쓰는 중… {int(sg.end // 60)}분 {int(sg.end % 60)}초까지")
     return words
@@ -323,5 +323,5 @@ def make(src_folder: str, style_name: str = "유잡스 기본", model_size: str 
             raise
         _run([ff, "-y", "-i", str(joined), "-filter_complex_script", str(script), *enc])
     step("done")
-    return {"final": str(final), "srt": str(srt), "folder": str(out), "before": round(total, 1),
-            "after": round(sum(b - a for a, b in ivs), 1), "cuts": len(ivs), "lines": len(subs)}
+    return {"final": str(final), "srt": str(srt), "folder": str(out), "before": round(float(total), 1),
+            "after": round(float(sum(b - a for a, b in ivs)), 1), "cuts": len(ivs), "lines": len(subs)}
