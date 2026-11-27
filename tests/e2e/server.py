@@ -9,6 +9,7 @@ sys.modules["webview"] = types.SimpleNamespace(windows=[], OPEN_DIALOG=0)
 from planner import access, net  # noqa: E402
 net.use_system_certificates()
 access.check = lambda pw, expected=None: True
+access.check_saved = lambda s: True
 import desktop  # noqa: E402
 API = desktop.Api()
 API.copy_text = lambda text: (Path("e2e_out") / "copied.md").write_text(text, encoding="utf-8") or True
