@@ -10,6 +10,7 @@ STOPWORDS = set("""
 가지 하지 마세요 총정리 정리 꿀팁 현실 추천 비밀 알려 드림 드립니다 이렇게 이것 이것만 바로 꼭 제발 단돈 무료 모르면 손해 실패담 사람 사람들 나만 우리 없이 있게 하면서 위해 대한
 늘리 늘리기 만드 만들 만드는 벌기 버는 번 하기 되기 보기 알려 알려드 드리 찾기 쓰는 쓰기 파는 팔기 사는 하는법 방법들 이유 정말로 판매 강의
 the a an to of and in for on with my your how why what is are you i this that
+new made make makes making get gets got rules rule if it its it's we our they them do does did don't can can't will just more most best top all every one two three first last vs not no yes so be was were been have has had from by at as or but about into out up down now here there when which who than then too very really still even also only own same other any some much many way ways things thing need want know try tried tips tip guide full free easy fast quick big little time times day days week year years video videos youtube channel channels views view subscribers subscriber youtuber youtubers shorts short live podcast episode ep part
 """.split())
 
 PARTICLES = ("으로", "에서", "에게", "까지", "부터", "보다", "처럼", "이랑", "하고", "은", "는", "이", "가", "을", "를", "의", "에", "도", "만", "로", "와", "과")
@@ -28,7 +29,7 @@ def keywords(titles: list[str], top: int = 8) -> list[str]:
         t = re.sub(r"\(.*?\)|\[.*?\]|#\S+", " ", t)
         for raw in re.findall(r"[가-힣A-Za-z]{2,}", t):
             w = _strip_particle(raw.lower())
-            if w in STOPWORDS or len(w) < 2:
+            if w in STOPWORDS or len(w) < 2 or (w.isascii() and len(w) < 3):
                 continue
             counter[w] += 1
     return [w for w, n in counter.most_common(top * 2) if n >= 2][:top] or [w for w, _ in counter.most_common(top)]
