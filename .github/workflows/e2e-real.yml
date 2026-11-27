@@ -1,7 +1,10 @@
 name: e2e-real
 
-# 실제 채널·실제 유튜브로 회원처럼 화면을 끝까지 눌러 보는 점검 (맥, 사파리 엔진).
-# 결과(화면 캡처 + report.json)는 e2e-results 브랜치에 올린다.
+# 실제 채널·실제 유튜브·실제 받아쓰기로 회원처럼 끝까지 써 보는 점검.
+#  - 화면(drive.mjs): 입력 → 분석 → 벤치마킹 → 레퍼런스 → 기획 → 주간 게시글 → 영상 만들기 → 자막·강조·챕터 고치기
+#  - Claude 앱 통로(mcp_flow.py): Claude가 콘봇 도구를 부르는 순서 그대로 기획부터 영상 편집까지
+# self = 내 채널(@유튜브-잡스)을 롤모델 칸에도 넣은 경우, cook = 한국 요리 채널 회원
+# 결과(화면 캡처 + report.json)는 e2e-results 브랜치에 <tag>/ 폴더로 올린다.
 on:
   workflow_dispatch:
   workflow_run:
@@ -12,44 +15,86 @@ permissions:
   contents: write
 
 jobs:
-  e2e:
+  clip:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
-    runs-on: macos-latest
-    timeout-minutes: 45
-    env:
-      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+        with: { python-version: "3.12" }
+      - run: pip install imageio-ffmpeg certifi truststore
+      - run: python tests/video/real.py make-clip clip
+      - uses: actions/upload-artifact@v4
+        with: { name: e2e-clip, path: clip/raw.mp4 }
+
+  e2e:
+    needs: clip
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15-intel, persona: self, browser: webkit, tag: mac-self }
+          - { os: windows-latest, persona: self, browser: chromium, tag: win-self }
+          - { os: macos-15-intel, persona: cook, browser: webkit, tag: mac-cook }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.pw-browsers
+      PERSONA: ${{ matrix.persona }}
+      BROWSER: ${{ matrix.browser }}
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
       - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
+        with: { deno-version: v2.x }
+      - uses: actions/download-artifact@v4
+        with: { name: e2e-clip, path: clipsrc }
       - name: Install
+        shell: bash
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           npm install --no-save playwright@1.49.1
-          npx playwright install webkit
-      - name: Run
-        env:
-          HOME_OVERRIDE: e2e_home
+          npx playwright install ${{ matrix.browser }}
+      - name: Screens (member clicks)
+        shell: bash
         run: |
-          export HOME=$PWD/e2e_home && mkdir -p $HOME
-          mkdir -p e2e_out
+          export HOME=$PWD/e2e_home USERPROFILE=$PWD/e2e_home && mkdir -p $HOME
+          mkdir -p e2e_out clip_ui && cp clipsrc/raw.mp4 clip_ui/01.mp4
+          export CLIP_DIR=$PWD/clip_ui
           (python tests/e2e/server.py > e2e_server.log 2>&1 &)
           for i in $(seq 1 60); do curl -sf -o /dev/null http://127.0.0.1:8765/index.html && break; sleep 2; done
           echo "server up after ~$((i*2))s" | tee e2e_out/drive.log
           node tests/e2e/drive.mjs >> e2e_out/drive.log 2>&1 || echo "drive exit $?" >> e2e_out/drive.log
           cp e2e_server.log e2e_out/ || true
-      - name: Publish results
+          cp "$CLIP_DIR/콘봇_완성/자막.srt" e2e_out/ui_subs.srt 2>/dev/null || true
+      - name: Claude app tools (MCP)
+        if: ${{ matrix.persona == 'self' }}
+        shell: bash
+        run: |
+          export HOME=$PWD/mcp_home USERPROFILE=$PWD/mcp_home && mkdir -p $HOME/Desktop
+          python tests/e2e/mcp_flow.py clipsrc/raw.mp4 e2e_out > e2e_out/mcp.log 2>&1 || echo "mcp exit $?" >> e2e_out/mcp.log
+          tail -40 e2e_out/mcp.log
+      - uses: actions/upload-artifact@v4
         if: always()
+        with: { name: "e2e-${{ matrix.tag }}", path: e2e_out }
+
+  publish:
+    needs: e2e
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: res, pattern: "e2e-*-*" }
+      - name: Push results
         env:
           TOKEN: ${{ github.token }}
         run: |
-          mkdir -p /tmp/res && cp -R e2e_out/. /tmp/res/ 2>/dev/null || true
-          cd /tmp/res && git init -q && git checkout -q -b e2e-results
+          cd res && for d in e2e-*; do [ -d "$d" ] && mv "$d" "${d#e2e-}"; done
+          echo "run ${{ github.run_number }} $(date -u)" > RUN.txt
+          git init -q && git checkout -q -b e2e-results
           git config user.name "cornbot-e2e"; git config user.email "e2e@users.noreply.github.com"
           git add -A && git commit -q -m "e2e ${{ github.run_number }}"
           git push -f -q "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" e2e-results
