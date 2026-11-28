@@ -16,13 +16,40 @@ import urllib.request
 from datetime import date, datetime
 from pathlib import Path
 
-from yt_dlp import YoutubeDL
+from yt_dlp import YoutubeDL as _YoutubeDL
 
 from .net import js_runtimes, urlopen
 from .surge import Video
 
 BASE_OPTS = {"quiet": True, "no_warnings": True, "skip_download": True,
              "js_runtimes": js_runtimes()}
+
+
+_PLAIN = {"on": False}  # 한 번이라도 압축이 깨져 오면 그 뒤로는 압축 없이 받는다
+
+
+class YoutubeDL(_YoutubeDL):
+    """일부 회선·보안 프로그램에서 유튜브 응답의 압축이 깨져 오면('Error -3 while decompressing data')
+    압축 없이(Accept-Encoding: identity) 다시 받는다."""
+
+    def __init__(self, params=None, *a, **k):
+        params = dict(params or {})
+        self._orig_params = dict(params)
+        if _PLAIN["on"]:
+            params["http_headers"] = {**(params.get("http_headers") or {}), "Accept-Encoding": "identity"}
+        super().__init__(params, *a, **k)
+
+    def extract_info(self, *a, **k):
+        try:
+            return super().extract_info(*a, **k)
+        except Exception as e:
+            if "decompress" not in str(e).lower() and "compression" not in str(e).lower():
+                raise
+            if _PLAIN["on"] and "identity" in str(self.params.get("http_headers", {}).get("Accept-Encoding", "")):
+                raise  # 이미 압축 없이 받았는데도 실패
+            _PLAIN["on"] = True
+            with YoutubeDL(self._orig_params) as again:  # 새 연결로 압축 없이
+                return again.extract_info(*a, **k)
 
 
 def _date(s: str | None) -> date | None:
