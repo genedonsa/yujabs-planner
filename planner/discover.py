@@ -9,7 +9,7 @@ STOPWORDS = set("""
 영상 유튜브 채널 구독 구독자 조회수 방법 이유 진짜 정말 이거 그냥 무조건 절대 하는 하면 했던 하고 해서
 있는 없는 되는 안되는 모든 지금 오늘 처음 최고 최악 공개 결과 후기 리뷰 브이로그 vlog feat ft shorts
 가지 하지 마세요 총정리 정리 꿀팁 현실 추천 비밀 알려 드림 드립니다 이렇게 이것 이것만 바로 꼭 제발 단돈 무료 모르면 손해 실패담 사람 사람들 나만 우리 없이 있게 하면서 위해 대한 맛있 맛있게 맛있는 맛있어 맛나 됩니다 됐어요 먹는 먹을 먹어 요즘 쉽게 쉬운 간단 간단한 초간단 아주 너무 많이 이제 다들 모두 가장 제일 특히 함께 같이 드세요 해보세요 보세요 넣으면 넣고 만드는법 만드는 만들기 담그 담그는 끓이 끓이는 볶는 무치 굽는 찌는 하는 쉽고 이걸 이거 이건 이렇게 진짜로 정말로 완전 엄청 대박 꼭 바로 그냥 무조건 절대
-대충 어떤 어느 무슨 이런 그런 저런 모은 모아 꼴랑 난리난 난리 맛있어서 대부분 잘못 전부 같은 새로 다시 시대 법칙 목표 인생 시간 사용법 회사 유일한 유일 결국 이제는 그리고 하지만 생각 바뀌었 바뀐 시작 시작한 시작할 시작하는 다니면서 다니며 하나 여러 몇개 몇가지 얼마나 얼마 어떻게 왜냐 했는데 하는데 인데 이유는 
+대충 어떤 어느 무슨 이런 그런 저런 모은 모아 꼴랑 난리난 난리 맛있어서 대부분 잘못 전부 같은 새로 다시 알려주 알려줌 알아야 아무 아무도 살아남 살아남는 취향 무엇 누구 그것 저것 시대 법칙 목표 인생 시간 사용법 회사 유일한 유일 결국 이제는 그리고 하지만 생각 바뀌었 바뀐 시작 시작한 시작할 시작하는 다니면서 다니며 하나 여러 몇개 몇가지 얼마나 얼마 어떻게 왜냐 했는데 하는데 인데 이유는 
 늘리 늘리기 만드 만들 만드는 벌기 버는 번 하기 되기 보기 알려 알려드 드리 찾기 쓰는 쓰기 파는 팔기 사는 하는법 방법들 이유 정말로 판매 강의
 the a an to of and in for on with my your how why what is are you i this that
 don doesn didn isn aren wasn her his him she he they their them minutes minute hours hour seconds 만든 만들었 만들어 했더니 하는법 했습니다 합니다 new made make makes making get gets got changed change changes changing watch watching actually literally finally update updates month months today tomorrow yesterday everything nothing something someone everyone people person guy guys man woman life world story stories real truth secret secrets mistake mistakes reason reasons why's here's that's it's i'm you're don't won't should could would never always rules rule if it its it's we our they them do does did don't can can't will just more most best top all every one two three first last vs not no yes so be was were been have has had from by at as or but about into out up down now here there when which who than then too very really still even also only own same other any some much many way ways things thing need want know try tried tips tip guide full free easy fast quick big little time times day days week year years video videos youtube channel channels views view subscribers subscriber youtuber youtubers shorts short live podcast episode ep part
@@ -27,7 +27,7 @@ def _strip_particle(word: str) -> str:
 
 def _verbish(w: str) -> bool:
     """'맛있어서', '다니면서', '했는데'처럼 동사·형용사가 활용된 말은 분야 키워드가 아니다."""
-    return len(w) >= 3 and not w.isascii() and w.endswith(("어서", "아서", "해서", "면서", "는데", "었던", "았던", "했던", "하던", "니까", "더니", "려고", "으면", "시키", "시켜", "시킨"))\
+    return len(w) >= 3 and not w.isascii() and w.endswith(("어서", "아서", "해서", "면서", "는데", "었던", "았던", "했던", "하던", "니까", "더니", "려고", "으면", "시키", "시켜", "시킨", "아야", "어야", "해야"))\
         or (len(w) >= 3 and not w.isascii() and w.endswith("히"))  # 영원히·꾸준히 같은 꾸밈말
 
 
@@ -103,8 +103,8 @@ def _tokens(title: str, keep: set | frozenset) -> list[str | None]:
     title = re.sub(r"\(.*?\)|\[.*?\]|#\S+", " ", title)
     out: list[str | None] = []
     for raw in title.split():
-        w = re.sub(r"[^가-힣A-Za-z]", "", raw).lower()
-        w = _strip_particle(w)
+        w = re.sub(r"[^0-9가-힣A-Za-z]", "", raw).lower()
+        w = w if re.fullmatch(r"1인", w) else _strip_particle(re.sub(r"[0-9]", "", w))
         ok = len(w) >= 2 and not (w.isascii() and len(w) < 3 and w not in SHORT_OK) and not _verbish(w) and (w not in STOPWORDS or w in keep)
         out.append(w if ok else None)
     return out
@@ -127,8 +127,7 @@ def phrases(groups: list[list[str]], top: int = 5, keep: set | frozenset = froze
                 tf[p] += 1
                 seen.add(p)
         df.update(seen)
-    multi = len([g for g in groups if g]) >= 2
-    cand = [p for p in tf if tf[p] >= 2 and (df[p] >= 2 or not multi or tf[p] >= 3)]
+    cand = [p for p in tf if tf[p] >= 2]  # 여러 채널에 함께 나온 구문이 앞으로 (정렬)
     cand.sort(key=lambda p: (df[p], tf[p]), reverse=True)
     out: list[str] = []
     for p in cand:  # 이미 고른 구문들이 두 낱말을 다 덮고 있으면 건너뜀
@@ -146,6 +145,9 @@ def field_keywords(groups: list[list[str]], keep: set | frozenset = frozenset(),
     ph = phrases(groups, 5, keep | ({"유튜브", "youtube"} if yt_field else set()), generic)
     used = {w for p in ph for w in p.split()}
     pool = shared_keywords(groups, 16, keep) + keywords([t for g in groups for t in g], 16, keep)
+    if yt_field:  # 유튜브 분야면 제목에 나온 유튜브 전문 용어(수익화·알고리즘·썸네일…)를 먼저
+        text = " ".join(t for g in groups for t in g).lower()
+        pool = [w for w in sorted(keep - generic, key=lambda w: -text.count(w)) if text.count(w) >= 2] + pool
     singles: list[str] = []
     for w in pool:
         if w not in generic and w not in used and w not in singles:
