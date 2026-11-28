@@ -216,3 +216,13 @@ def test_open_window_reports_failure(srv, monkeypatch):
     monkeypatch.setattr(R, "window_alive", lambda: True)
     err, t = _call(srv, "open_cornbot_window")
     assert not err and "이미 열려" in t
+
+
+def test_field_keywords_phrases():
+    from planner.discover import YOUTUBE_FIELD_WORDS, field_keywords
+    me = ["해외에서 매출 만든 유튜브 수익화 아이디어 35", "30만 유튜버가 구독자 0명부터 다시 시작한다면?", "유튜브 수익화 현실 알려드림",
+          "회사 퇴사하고 3년, 월급에 대해 생각이 바뀌었습니다", "월급 말고 유튜브 수익화"]
+    ed = ["퇴사하고 살아남는 법", "월급 시스템에서 벗어나는 법", "아무도 알려주지 않는 1인 사업", "1인 사업 시스템 만들기", "AI로 1인 사업", "알아야 할 것"]
+    ks = field_keywords([me, ed], YOUTUBE_FIELD_WORDS, True)
+    assert ks[:2] == ["유튜브 수익화", "1인 사업"]
+    assert not {"조회수", "구독자", "유튜버", "알아야", "아무", "알려주", "살아남"} & set(ks)
