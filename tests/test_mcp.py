@@ -182,3 +182,11 @@ def test_keywords_no_duplicates():
     nfd = unicodedata.normalize("NFD", "회사")
     out = E.merge_keywords(["회사", "구독자"], {"kw_added": [nfd, "회사", " 수익화 "], "kw_removed": []})
     assert out == ["회사", "구독자", "수익화"]
+
+
+def test_references_empty_after_analysis(srv, tmp_path):
+    err, t = _call(srv, "list_references")
+    assert err and "start_analysis" in t
+    (tmp_path / "last_result.json").write_text(json.dumps({"date": "2026-11-28", "refs": []}), encoding="utf-8")
+    err, t = _call(srv, "list_references")
+    assert not err and "급상승" in t
