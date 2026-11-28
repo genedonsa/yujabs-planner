@@ -57,11 +57,14 @@ def _call(srv, tool, **a):
 
 
 def test_tools_weekly_flow_and_plan(srv, tmp_path, monkeypatch):
-    err, t = _call(srv, "import_weekly_post", text=POST_TEXT)
-    assert not err, t
-    assert "W2" in t and "제목 ZYXWVUTSRQP" in t
+    csv_text = ("id,url,title,channel,views,ratio,note,post_date,post_title\n"
+                "abcdefghijk,,김치 영상,엄마의손맛,48000,5.2,\"왜 터졌나: 김장철\",2026-11-28,11월 4주차\n"
+                ",https://youtu.be/ZYXWVUTSRQP,제목 ZYXWVUTSRQP,전국,\"1,200\",3.4배,\"영상 요약: 반찬 10가지\",2026-11-28,11월 4주차\n")
+    monkeypatch.setattr(weekly, "feed_urls", lambda: ["sheet"])
+    monkeypatch.setattr(access, "_download", lambda u: csv_text)
     err, t = _call(srv, "list_weekly_videos")
-    assert not err and "평소의 5.2배" in t
+    assert not err, t
+    assert "W2" in t and "제목 ZYXWVUTSRQP" in t and "김장철" in t and "3.4" in t
     seen = {}
 
     def fake_material(video, story, s):
@@ -73,7 +76,7 @@ def test_tools_weekly_flow_and_plan(srv, tmp_path, monkeypatch):
     monkeypatch.setattr(E, "plan_material", fake_material)
     err, t = _call(srv, "get_planning_material", video="w2", my_story="나도 해 봤다")
     assert not err and t.startswith("자료")
-    assert seen["v"]["id"] == "ZYXWVUTSRQP" and "반찬" in seen["v"]["note"]
+    assert seen["v"]["id"] == "ZYXWVUTSRQP" and "반찬" in seen["v"]["note"] and seen["v"]["views"] == 1200
     err, t = _call(srv, "save_plan", video="W2", plan_markdown="# 기획안")
     assert not err
     assert (tmp_path / "기획" / "2026-11-28_ZYXWVUTSRQP" / "기획안.md").read_text(encoding="utf-8") == "# 기획안"
@@ -155,3 +158,20 @@ def test_spelling_and_self_role_and_keywords():
     assert E._same_channel("https://www.youtube.com/@유튜브-잡스", "https://youtube.com/@%EC%9C%A0%ED%8A%9C%EB%B8%8C-%EC%9E%A1%EC%8A%A4/videos")
     ks = keywords(["김장김치 맛있어서 난리난 레시피", "김장김치 반찬 대충 어떤", "반찬 대충 어떤 맛있어서"])
     assert "김장김치" in ks and "반찬" in ks and not {"맛있어서", "대충", "어떤", "난리난"} & set(ks)
+
+
+def test_feed_offline_uses_cache(tmp_path, monkeypatch):
+    monkeypatch.setattr(weekly, "feed_urls", lambda: ["a"])
+    monkeypatch.setattr(access, "_download", lambda u: "id,title,ratio\nabcdefghijk,영상,4.5\n")
+    d = weekly.fetch_feed(tmp_path)
+    assert d["items"][0]["code"] == "W1" and d["items"][0]["format"] == "급상승 영상" and not d["offline"]
+    def boom(u):
+        raise OSError("no net")
+    monkeypatch.setattr(access, "_download", boom)
+    d2 = weekly.fetch_feed(tmp_path)
+    assert d2["offline"] and d2["items"][0]["id"] == "abcdefghijk"
+
+
+def test_criteria_fixed(tmp_path, monkeypatch):
+    import inspect
+    assert "dict(DEFAULT_CRITERIA)" in inspect.getsource(E.analyze)
