@@ -214,6 +214,15 @@ class Api:
         self._weekly_cache = (time.time(), d)
         return d
 
+    def reset(self, everything: bool = False) -> dict:
+        """설정 → 처음 상태로. 기본은 암호·채널·구독 리스트만, everything이면 '유잡스 기획' 폴더 전체를 휴지통으로."""
+        if self.progress.get("running") or self.vprog.get("running"):
+            return {"ok": False, "error": "분석이나 영상 만들기가 끝난 뒤에 해 주세요."}
+        try:
+            return R.reset(bool(everything))
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "error": f"지우지 못했어요 ({e}). 콘봇을 껐다 켠 뒤 다시 해 주세요."}
+
     def open_claude(self) -> None:
         webbrowser.open("https://claude.ai/new")
 
@@ -411,7 +420,11 @@ def main():
     api = Api()
     from planner import claude_link
     api.link_result = claude_link.auto()
-    webview.create_window(APP_NAME, str(UI), js_api=api, width=1100, height=780, min_size=(900, 640))
+    win = webview.create_window(APP_NAME, str(UI), js_api=api, width=1100, height=780, min_size=(900, 640))
+    import atexit
+    win.events.shown += lambda *a: R.mark_window(True)  # Claude의 '콘봇 창 열기'가 창이 떴는지 확인하는 표시
+    win.events.closed += lambda *a: R.mark_window(False)
+    atexit.register(R.mark_window, False)
     webview.start()
 
 
