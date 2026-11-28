@@ -190,3 +190,29 @@ def test_references_empty_after_analysis(srv, tmp_path):
     (tmp_path / "last_result.json").write_text(json.dumps({"date": "2026-11-28", "refs": []}), encoding="utf-8")
     err, t = _call(srv, "list_references")
     assert not err and "급상승" in t
+
+
+def test_reset_keeps_plans_unless_everything(tmp_path, monkeypatch):
+    monkeypatch.setattr(R, "HOME", tmp_path / "유잡스 기획")
+    monkeypatch.setattr(R, "SETTINGS", R.HOME / "settings.json")
+    monkeypatch.setattr(R, "BACKUP", R.HOME / "settings.bak.json")
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    (R.HOME / "기획" / "x").mkdir(parents=True)
+    R.SETTINGS.write_text("{}", encoding="utf-8")
+    R.BACKUP.write_text("{}", encoding="utf-8")
+    r = R.reset()
+    assert r["ok"] and not R.SETTINGS.exists() and not R.BACKUP.exists() and (R.HOME / "기획" / "x").exists()
+    r = R.reset(True)
+    assert r["ok"] and not R.HOME.exists()
+
+
+def test_open_window_reports_failure(srv, monkeypatch):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(R, "window_alive", lambda: False)
+    monkeypatch.setattr(mcp_server.subprocess, "Popen", lambda *a, **k: None)
+    monkeypatch.setattr(mcp_server.time, "time", iter(range(0, 1000, 30)).__next__)
+    err, t = _call(srv, "open_cornbot_window")
+    assert err and "직접" in t
+    monkeypatch.setattr(R, "window_alive", lambda: True)
+    err, t = _call(srv, "open_cornbot_window")
+    assert not err and "이미 열려" in t
