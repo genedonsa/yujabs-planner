@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Callable
 
 from . import access, collect, net
-from .discover import anchor_word, keywords as auto_keywords, shared_keywords
+from .discover import anchor_word, field_keywords, keywords as auto_keywords, shared_keywords, topic_words
 from .surge import Video
 
 HOME = Path.home() / "유잡스 기획"
@@ -212,15 +212,19 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     yt_field = anchor in ("유튜브", "youtube", "유튜버")
     if yt_field:  # 유튜브 교육 분야면 '유튜브' 대신 더 좁은 말을 검색어 앞에 붙이지 않는다(키워드가 이미 유튜브 용어)
         anchor = "유튜브"
-    auto = shared_keywords(groups, keep=YOUTUBE_FIELD_WORDS if yt_field else frozenset())
+    keep = YOUTUBE_FIELD_WORDS if yt_field else frozenset()
+    auto = field_keywords(groups, keep, yt_field)  # '유튜브 수익화'처럼 분야를 나타내는 구문 먼저
+    # 롤모델들이 주로 다루는 낱말 — 찾은 채널이 이 중 2개 이상을 다뤄야 같은 분야로 본다
+    role_topic = topic_words([t for g in (groups[1:] or groups) for t in g], keep, 60)
     kws = merge_keywords(auto, s)
     role_ids = {r["id"] for r in roles}
     # 롤모델 칸에 내 채널을 넣었으면 '나보다 작은 채널'만 찾으면 거의 없다 → 나와 비슷한 규모(5배까지)로 찾는다
     # 내 채널이 아직 작으면(구독자 수백 명) 5배로도 거의 없으니, 최소 구독자 10만·평소 조회 5만까지는 본보기로 삼는다
     role_subs = [max(r["subs"] * 5, 100_000) if r.get("is_me") else r["subs"] for r in roles if r.get("subs")]
     role_avg = [max(r["avg"] * 5, 50_000) if r.get("is_me") else r["avg"] for r in roles if r.get("avg")]
-    max_subs = min(role_subs) if role_subs else None
-    max_avg = min(role_avg) if role_avg else None
+    # 롤모델 중 가장 큰 채널보다 작으면 본보기로 삼는다 (롤모델을 늘리면 찾는 범위도 넓어짐)
+    max_subs = max(role_subs) if role_subs else None
+    max_avg = max(role_avg) if role_avg else None
 
     step("search"); log(f"키워드: {', '.join(kws)} (분야: {anchor or '-'})")
     found_count: Counter = Counter()
@@ -253,6 +257,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     bench = []
     check_ids = [cid for cid, _ in found_count.most_common(25)]
     why: Counter = Counter()
+    topic_ok: dict[str, bool] = {}
     check_ids += [cid for cid in subs if cid not in check_ids]
     for cid in check_ids:
         try:
@@ -273,14 +278,18 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
             terms = sorted(YOUTUBE_FIELD_WORDS | {"유튜브", "youtube"} | {f.lower() for f in formats})
         n_hit = sum(1 for v in vids if any(t in v.title.lower() for t in terms))
         on_topic = n_hit >= 2 and (not yt_field or n_hit >= 0.25 * len(vids))  # 여행 브이로그가 '구독자 1만 기념' 몇 편으로 끼지 않게
+        shared = topic_words([v.title for v in vids], keep) & role_topic
+        ch["shared_topic"] = sorted(shared)[:6]
+        topic_ok[cid] = on_topic and (len(shared) >= 2 or not role_topic)
         # 너무 작은 채널(구독자 1천 미만이거나 평소 조회수 1천 미만)은 참고가 어려워 뺀다
         big_enough = (ch.get("subs") or 0) >= 1000 and (ch["avg"] or 0) >= 1000
         manual = cid in subs and not (subs.get(cid) or {}).get("auto")  # 회원이 직접 넣은 채널은 늘 포함
-        if manual or (smaller and big_enough and recent_long >= 1 and on_topic and cid not in removed_subs):
+        if manual or (smaller and big_enough and recent_long >= 1 and topic_ok[cid] and cid not in removed_subs):
             bench.append(ch)
         else:
             why[("롤모델보다 큼" if not smaller else "너무 작음" if not big_enough else
-                 "최근 30일 롱폼 없음" if recent_long < 1 else "분야 다름" if not on_topic else "직접 뺀 채널")] += 1
+                 "최근 30일 롱폼 없음" if recent_long < 1 else "분야 다름" if not on_topic else
+                 "롤모델과 주제 다름" if not topic_ok[cid] else "직접 뺀 채널")] += 1
     log(f"벤치마킹 후보 {len(check_ids)}곳 → {len(bench)}곳" + (" (빠진 이유: " + ", ".join(f"{k} {n}" for k, n in why.most_common()) + ")" if why else "")
         + (f" · 기준 구독자 {max_subs:,}명 미만" if max_subs else ""))
     # 롤모델과 같은 분야로 찾은 채널은 전부 구독 리스트에 (회원이 직접 뺀 채널은 다시 넣지 않음)
@@ -309,6 +318,8 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
         for h in hits(ch, vids, baseline(vids, today, c["days"]), today, c):
             if h["id"] in shown or h["id"] in seen:
                 continue
+            if source == "키워드 검색" and not topic_ok.get(cid):
+                continue  # 롤모델과 주제가 다른 채널(키워드 하나만 걸린 채널)의 영상은 레퍼런스로 쓰지 않는다
             if source == "키워드 검색" and h["id"] not in found_vids:
                 continue  # 검색으로만 알게 된 채널은 검색에 걸린 그 영상만 (채널의 다른 주제 영상은 뺌)
             if source == "키워드 검색" and yt_field and h["id"] not in found_by_format and \
@@ -319,6 +330,14 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
             h["format"] = _tag_format(h, formats, found_by_format)
             refs.append(h)
     refs.sort(key=lambda r: (-r["ratio"], r["age"]))
+    per: Counter = Counter()  # 한 채널이 레퍼런스를 독차지하지 않게 (롤모델 3편, 그 밖 2편까지)
+    capped = []
+    for r in refs:
+        cap = 3 if r["source"] == "롤모델" else 2
+        if per[r.get("channel_id") or r["channel"]] < cap:
+            per[r.get("channel_id") or r["channel"]] += 1
+            capped.append(r)
+    refs = capped
 
     out_dir = HOME / today.isoformat()
     out_dir.mkdir(parents=True, exist_ok=True)

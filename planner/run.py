@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 import re
 from datetime import date
 from pathlib import Path
@@ -21,6 +23,86 @@ SETTINGS = HOME / "settings.json"
 # (업데이트해도 회원이 넣은 채널·경험·포맷·구독 리스트가 절대 사라지지 않게 하는 장치)
 SCHEMA = 2
 BACKUP = HOME / "settings.bak.json"
+WINDOW = HOME / "window.json"  # 콘봇 창이 떠 있는 동안만 있는 표시 (Claude가 '창 열기'가 됐는지 확인할 때 씀)
+
+
+def _pid_alive(pid: int) -> bool:
+    if not pid:
+        return False
+    if os.name == "nt":
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x1000, False, int(pid))  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ok = k.GetExitCodeProcess(h, ctypes.byref(code))
+        k.CloseHandle(h)
+        return bool(ok) and code.value == 259  # STILL_ACTIVE
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
+def mark_window(open_: bool) -> None:
+    try:
+        if open_:
+            HOME.mkdir(parents=True, exist_ok=True)
+            WINDOW.write_text(json.dumps({"pid": os.getpid()}), encoding="utf-8")
+        elif WINDOW.exists() and json.loads(WINDOW.read_text(encoding="utf-8")).get("pid") == os.getpid():
+            WINDOW.unlink()
+    except (OSError, ValueError):
+        pass
+
+
+def window_alive() -> bool:
+    try:
+        return _pid_alive(json.loads(WINDOW.read_text(encoding="utf-8")).get("pid"))
+    except (OSError, ValueError):
+        return False
+
+
+def _to_trash(p: Path) -> None:
+    """휴지통으로 옮긴다(실수로 지워도 되살릴 수 있게)."""
+    import shutil
+    from datetime import datetime
+    if sys.platform == "darwin":
+        trash = Path.home() / ".Trash"
+        trash.mkdir(exist_ok=True)
+        shutil.move(str(p), str(trash / f"{p.name} {datetime.now():%Y-%m-%d %H.%M.%S}"))
+    elif os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+
+        class SHFILEOPSTRUCTW(ctypes.Structure):
+            _fields_ = [("hwnd", wintypes.HWND), ("wFunc", wintypes.UINT), ("pFrom", ctypes.c_void_p),
+                        ("pTo", wintypes.LPCWSTR), ("fFlags", ctypes.c_uint16), ("fAnyOperationsAborted", wintypes.BOOL),
+                        ("hNameMappings", ctypes.c_void_p), ("lpszProgressTitle", wintypes.LPCWSTR)]
+        buf = ctypes.create_unicode_buffer(str(p) + "\0")  # 끝에 null 두 개
+        op = SHFILEOPSTRUCTW(None, 3, ctypes.cast(buf, ctypes.c_void_p), None, 0x0040 | 0x0010 | 0x0004 | 0x0400, False, None, None)
+        if ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op)) != 0:
+            raise OSError("휴지통으로 옮기지 못했어요")
+    else:
+        shutil.rmtree(p)
+
+
+def reset(everything: bool = False) -> dict:
+    """처음 상태로. 기본은 설정·암호·채널·구독 리스트만 지우고 기획안·분석 자료는 남긴다.
+    everything=True면 '유잡스 기획' 폴더 전체를 휴지통으로 옮긴다(받아쓰기 도구도 다시 받음)."""
+    if everything:
+        if HOME.exists():
+            _to_trash(HOME)
+        return {"ok": True, "removed": str(HOME)}
+    gone = []
+    for f in (SETTINGS, BACKUP, HOME / "last_result.json", HOME / "me.json"):
+        if f.exists():
+            f.unlink()
+            gone.append(f.name)
+    return {"ok": True, "removed": gone}
 
 
 def migrate(s: dict) -> dict:

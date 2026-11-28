@@ -193,17 +193,27 @@ class Server:
                 "analysis_running": self.job["running"], "video_running": self.vjob["running"]}
 
     def t_open_cornbot_window(self, a):
+        """콘봇 창을 띄우고, 창이 정말 떴는지 확인한 뒤에만 '열었다'고 답한다."""
+        from .run import window_alive
+        if window_alive():
+            return "콘봇 창이 이미 열려 있어요. 회원에게 Dock(윈도우는 작업 표시줄)의 콘봇 아이콘을 눌러 창을 앞으로 가져와 달라고 안내하세요."
         exe = Path(sys.executable)
         if not getattr(sys, "frozen", False):
             raise Need("개발용 실행이라 창을 열 수 없어요. 콘봇 앱을 직접 열어 주세요.")
         app = next((p for p in exe.parents if p.suffix == ".app"), None)
         if sys.platform == "darwin" and app:
-            subprocess.Popen(["open", str(app)])
+            # Claude가 띄운 콘봇(창 없는 도구용)이 이미 돌고 있어서 그냥 'open'은 그쪽만 깨운다 → 새 창용 콘봇을 따로 연다
+            subprocess.Popen(["open", "-n", str(app)], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
             flags = 0x00000008 | 0x00000200 if os.name == "nt" else 0  # DETACHED_PROCESS | NEW_PROCESS_GROUP
             subprocess.Popen([str(exe)], creationflags=flags, close_fds=True,
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return "콘봇 창을 열었어요. 회원에게 창을 확인해 달라고 안내하세요."
+        end = time.time() + 25
+        while time.time() < end:
+            if window_alive():
+                return "콘봇 창을 열었어요(화면에 떠 있어요). 회원에게 콘봇 창을 확인해 달라고 안내하세요."
+            time.sleep(0.5)
+        raise Need("콘봇 창을 띄우지 못했어요. 회원에게 '응용 프로그램(윈도우는 바탕화면) → CornBot'을 직접 눌러 열어 달라고 안내하세요.")
 
     def t_update_profile(self, a):
         from . import run as R
