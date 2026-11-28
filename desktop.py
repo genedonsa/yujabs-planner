@@ -63,7 +63,7 @@ class Api:
                 last = None
         safe = {k: v for k, v in s.items() if k not in ("password", "password_fp")}
         return {"code_ok": ok, "access_error": access_error, "had_password": bool(s.get("password_fp") or s.get("password")),
-                "settings": safe, "criteria": {**E.DEFAULT_CRITERIA, **(s.get("criteria") or {})},
+                "settings": safe, "criteria": dict(E.DEFAULT_CRITERIA),
                 "last": last, "version": VERSION, "home": str(E.HOME), "month": f"{datetime.now().year}년 {datetime.now().month}월"}
 
     def check_code(self, password: str) -> dict:
@@ -135,8 +135,8 @@ class Api:
                 st["subs"] = res["subs"]
                 R.save_settings(st)
                 self.progress["result"] = res
-            except Exception as e:  # 화면에 그대로 보여 준다
-                self.progress["error"] = str(e)
+            except Exception as e:  # 회원이 알아들을 말로 바꿔 화면에 보여 준다
+                self.progress["error"] = E._friendly(e)
             finally:
                 self.progress["running"] = False
         threading.Thread(target=work, daemon=True).start()
@@ -202,27 +202,16 @@ class Api:
             return {"ok": False, "error": "개발용 실행에서는 연결하지 않아요."}
         return claude_link.register()
 
-    # ---- 학원월드 주간 게시글 ----
-    def weekly_import(self, html: str, text: str) -> dict:
-        from planner import weekly
-        try:
-            items = weekly.import_post(html=html or "", text=text or "")
-        except ValueError as e:
-            return {"ok": False, "error": str(e)}
-        except Exception as e:
-            return {"ok": False, "error": f"게시글을 읽지 못했어요. ({E._friendly(e)})"}
-        return {"ok": True, **weekly.load(E.HOME)}
-
-    def weekly_from_clipboard(self) -> dict:
-        from planner import clip
-        html, text = clip.read()
-        if not (html or text).strip():
-            return {"ok": False, "error": "복사해 둔 내용이 없어요. 학원월드 게시글을 열고 ⌘A ⌘C(윈도우는 Ctrl+A Ctrl+C)로 복사해 주세요."}
-        return self.weekly_import(html, text)
-
+    # ---- 학원월드 주간 급상승 영상 (모든 회원 공통, 운영자가 시트에 올림) ----
     def weekly_list(self) -> dict:
         from planner import weekly
-        return weekly.load(E.HOME)
+        import time
+        c = getattr(self, "_weekly_cache", None)
+        if c and time.time() - c[0] < 600:
+            return c[1]
+        d = weekly.fetch_feed(E.HOME)
+        self._weekly_cache = (time.time(), d)
+        return d
 
     def open_claude(self) -> None:
         webbrowser.open("https://claude.ai/new")
