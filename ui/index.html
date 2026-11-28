@@ -389,7 +389,7 @@ function rowInput(box,val,ph){const d=document.createElement("div");d.className=
 function tagEditor(el,list,ph,onchange){
   el.innerHTML=list.map((t,i)=>`<span class="tg">${esc(t)}<button aria-label="${esc(t)} 빼기" data-i="${i}">×</button></span>`).join("")+`<input class="tgin" placeholder="${ph}">`;
   el.querySelectorAll(".tg button").forEach(b=>b.onclick=()=>{list.splice(+b.dataset.i,1);tagEditor(el,list,ph,onchange);onchange&&onchange();});
-  const inp=el.querySelector(".tgin");inp.onkeydown=e=>{if(e.key==="Enter"&&inp.value.trim()){e.preventDefault();list.push(inp.value.trim());tagEditor(el,list,ph,onchange);onchange&&onchange();el.querySelector(".tgin").focus();}};
+  const inp=el.querySelector(".tgin");inp.onkeydown=e=>{if(e.key==="Enter"&&inp.value.trim()){e.preventDefault();const v=inp.value.trim().normalize("NFC");if(list.some(x=>x.normalize("NFC")===v)){inp.value="";return;}list.push(v);tagEditor(el,list,ph,onchange);onchange&&onchange();el.querySelector(".tgin").focus();}};
 }
 function fillSetup(){const s=state.settings||{};
   $("myCh").value=s.my_channel||""; $("intro").value=s.intro||""; $("aud").value=s.audience||"";
