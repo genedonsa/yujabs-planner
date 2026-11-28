@@ -27,7 +27,8 @@ def _strip_particle(word: str) -> str:
 
 def _verbish(w: str) -> bool:
     """'맛있어서', '다니면서', '했는데'처럼 동사·형용사가 활용된 말은 분야 키워드가 아니다."""
-    return len(w) >= 3 and not w.isascii() and w.endswith(("어서", "아서", "해서", "면서", "는데", "었던", "았던", "했던", "하던", "니까", "더니", "려고", "으면"))
+    return len(w) >= 3 and not w.isascii() and w.endswith(("어서", "아서", "해서", "면서", "는데", "었던", "았던", "했던", "하던", "니까", "더니", "려고", "으면", "시키", "시켜", "시킨"))\
+        or (len(w) >= 3 and not w.isascii() and w.endswith("히"))  # 영원히·꾸준히 같은 꾸밈말
 
 
 # 분야가 '유튜브' 자체(유튜브 교육·성장)일 때는 평소엔 흔한 말로 빼던 유튜브 용어가 오히려 분야 키워드다
