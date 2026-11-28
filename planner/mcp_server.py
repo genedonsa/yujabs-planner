@@ -485,7 +485,30 @@ def _streams():
     return os.fdopen(fin, "rb", buffering=0), os.fdopen(fout, "wb", buffering=0)
 
 
+def _hide_from_dock() -> None:
+    """맥: Claude 앱이 띄운 도구용 콘봇이 Dock에 '두 번째 콘봇'으로 보이지 않게 한다 (창 없는 백그라운드 프로세스로)."""
+    if sys.platform != "darwin":
+        return
+    try:
+        import ctypes
+        import ctypes.util
+        objc = ctypes.cdll.LoadLibrary(ctypes.util.find_library("objc"))
+        ctypes.cdll.LoadLibrary("/System/Library/Frameworks/AppKit.framework/AppKit")
+        objc.objc_getClass.restype = ctypes.c_void_p
+        objc.objc_getClass.argtypes = [ctypes.c_char_p]
+        objc.sel_registerName.restype = ctypes.c_void_p
+        objc.sel_registerName.argtypes = [ctypes.c_char_p]
+        addr = ctypes.cast(objc.objc_msgSend, ctypes.c_void_p).value
+        send0 = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)(addr)
+        send1 = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long)(addr)
+        app = send0(objc.objc_getClass(b"NSApplication"), objc.sel_registerName(b"sharedApplication"))
+        send1(app, objc.sel_registerName(b"setActivationPolicy:"), 2)  # NSApplicationActivationPolicyProhibited
+    except Exception:
+        pass  # 못 숨겨도 기능에는 지장 없다
+
+
 def serve() -> None:
+    _hide_from_dock()
     rin, rout = _streams()
     lock = threading.Lock()
     # 도구가 print로 남기는 글이 대화 통로를 망치지 않게 표준출력을 오류 출력(또는 버림)으로 돌린다
