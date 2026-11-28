@@ -35,9 +35,13 @@ def _friendly(e: Exception) -> str:
         return "이 주소로 채널을 찾지 못했어요"
     if "confirm you" in m or "bot" in m:
         return "유튜브가 잠깐 막았어요. 조금 뒤 다시 해 주세요"
-    if "timed out" in m or "Connection" in m or "Network" in m:
+    if "timed out" in m or "Connection" in m or "Network" in m or "urlopen error" in m:
         return "인터넷 연결이 불안정해요"
-    return m[:60]
+    if "decompress" in m or "compression" in m:
+        return "유튜브에서 받은 내용이 깨져서 왔어요. 잠시 뒤 다시 해 주세요"
+    if re.search(r"[가-힣]", m):
+        return m[:300]  # 이미 회원용 문장
+    return "알 수 없는 오류가 났어요 (" + m[:80] + ")"
 
 
 def _today() -> date:
@@ -171,7 +175,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     if not access.check_saved(s):
         raise PermissionError("이번 달 암호가 바뀌었어요. 커뮤니티 회원 게시판에서 새 암호를 확인해 주세요.")
     today = _today()
-    c = {**DEFAULT_CRITERIA, **(s.get("criteria") or {})}
+    c = dict(DEFAULT_CRITERIA)  # 유잡스 기준은 고정 (회원이 바꿀 수 없음)
     formats = [f for f in s.get("formats", []) if f.strip()]
 
     step("me"); log("내 채널과 내 경험을 읽는 중…")
@@ -271,9 +275,10 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
                  "최근 30일 롱폼 없음" if recent_long < 1 else "분야 다름" if not on_topic else "직접 뺀 채널")] += 1
     log(f"벤치마킹 후보 {len(check_ids)}곳 → {len(bench)}곳" + (" (빠진 이유: " + ", ".join(f"{k} {n}" for k, n in why.most_common()) + ")" if why else "")
         + (f" · 기준 구독자 {max_subs:,}명 미만" if max_subs else ""))
-    if not subs:  # 처음엔 겹친 키워드가 많은 순으로 8곳을 자동으로 구독 리스트에
-        for ch in sorted(bench, key=lambda x: -len(x.get("keywords", [])))[:8]:
-            subs[ch["id"]] = {"name": ch["name"]}
+    # 롤모델과 같은 분야로 찾은 채널은 전부 구독 리스트에 (회원이 직접 뺀 채널은 다시 넣지 않음)
+    for ch in bench:
+        if ch["id"] not in removed_subs:
+            subs.setdefault(ch["id"], {"name": ch["name"]})
     for ch in bench:
         ch["subscribed"] = ch["id"] in subs
 

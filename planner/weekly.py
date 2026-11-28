@@ -1,5 +1,9 @@
 """학원월드 '주간 급상승 영상' 게시글 → 레퍼런스 목록.
 
+모든 회원이 같은 목록을 본다: 운영자(대표·Claude)가 게시글을 읽어 암호 확인 시트의 '급상승' 탭에 올리고,
+회원 콘봇은 그 탭을 읽어 레퍼런스 화면의 '급상승 영상' 포맷으로 보여 준다 (fetch_feed).
+parse()는 운영자가 게시글을 시트용 행으로 바꿀 때 쓴다.
+
 회원이 게시글을 통째로 복사(⌘A ⌘C)해서 콘봇에 붙여 넣으면, 글 속 유튜브 영상 링크와
 영상마다 달린 분석 문단(영상 요약·왜 터졌나·시청자가 얻은 가치·남은 궁금증)을 함께 뽑는다.
 분석 문단은 기획 자료에 그대로 들어가 기획안의 근거가 된다.
@@ -118,15 +122,65 @@ def load(home: Path) -> dict:
         return {"date": None, "items": []}
 
 
-def import_post(html: str = "", text: str = "", home: Path | None = None, log=lambda m: None) -> list[dict]:
-    """붙여 넣은(또는 클립보드의) 게시글 → 영상 정보 붙이기 → weekly.json 저장."""
+
+# ---------- 모든 회원 공통 목록 (암호 확인 시트의 '급상승' 탭) ----------
+FORMAT = "급상승 영상"
+FEED_GID = 777
+COLUMNS = ["id", "url", "title", "channel", "views", "ratio", "note", "post_date", "post_title"]
+
+
+def feed_urls() -> list[str]:
+    from .access import SHEET_ID
+    return [f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={FEED_GID}",
+            f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&gid={FEED_GID}"]
+
+
+def parse_feed(text: str) -> dict:
+    import csv
+    import io
+    rows = list(csv.reader(io.StringIO(text)))
+    if not rows:
+        return {"date": None, "post_title": "", "items": []}
+    head = [h.strip().lower() for h in rows[0]]
+    items = []
+    for r in rows[1:]:
+        d = {k: (r[i].strip() if i < len(r) else "") for i, k in enumerate(head)}
+        vid = d.get("id") or ""
+        m = re.search(YT_ID, vid) if len(vid) == 11 else (YT_URL.search(d.get("url") or "") or None)
+        vid = vid if len(vid) == 11 else (m.group(1) if m else "")
+        if not vid:
+            continue
+        def num(x, f):
+            try:
+                return f(str(x).replace(",", "").replace("배", "").strip())
+            except ValueError:
+                return None
+        items.append({"id": vid, "url": f"https://www.youtube.com/watch?v={vid}",
+                      "title": d.get("title") or "(제목 없음)", "channel": d.get("channel") or "",
+                      "views": num(d.get("views"), int), "ratio": num(d.get("ratio"), float),
+                      "note": (d.get("note") or "")[:2500], "thumb": f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg",
+                      "format": FORMAT, "source": "학원월드 주간 게시글", "post_date": d.get("post_date") or "",
+                      "post_title": d.get("post_title") or ""})
+    for i, it in enumerate(items, 1):
+        it["code"] = f"W{i}"
+    first = items[0] if items else {}
+    return {"date": first.get("post_date") or None, "post_title": first.get("post_title") or "", "items": items}
+
+
+def fetch_feed(home: Path | None = None) -> dict:
+    """시트에서 이번 주 목록을 읽는다. 못 읽으면 마지막으로 받아 둔 것을 쓴다(offline=True)."""
+    from . import access
     from .engine import HOME
-    items = parse(text=text, html=html)
-    if not items and html and text:
-        items = parse(text=text)
-    if not items:
-        raise ValueError("게시글에서 유튜브 영상 링크를 찾지 못했어요. 학원월드 주간 게시글을 연 뒤 "
-                         "⌘A(윈도우는 Ctrl+A)로 전체 선택하고 ⌘C(Ctrl+C)로 복사해 주세요.")
-    enrich(items, log)
-    save(items, home or HOME)
-    return items
+    home = home or HOME
+    for u in feed_urls():
+        try:
+            d = parse_feed(access._download(u))
+        except Exception:
+            continue
+        try:
+            home.mkdir(parents=True, exist_ok=True)
+            (home / "weekly.json").write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+        except OSError:
+            pass
+        return {**d, "offline": False}
+    return {**load(home), "offline": True}

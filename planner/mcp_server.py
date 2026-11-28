@@ -22,7 +22,7 @@ INSTRUCTIONS = """콘봇은 유잡스 커뮤니티 회원의 컴퓨터에 깔린
 
 기획 흐름
 1. 처음이거나 잘 모르겠으면 cornbot_status로 상태를 보세요. 암호가 안 맞으면 open_cornbot_window로 콘봇 창을 열고 '이번 달 암호를 콘봇 창에 넣어 주세요'라고 안내하세요. 암호를 대화창에 받지 마세요.
-2. 학원월드 '주간 급상승 영상' 게시글로 기획할 때: 회원에게 게시글을 열고 ⌘A ⌘C(윈도우 Ctrl+A Ctrl+C)로 복사하라고 한 뒤 import_weekly_post를 부르세요(클립보드를 직접 읽어요). 영상 목록(W1, W2…)을 보여 주고 고르게 하세요.
+2. 학원월드 '주간 급상승 영상'(대표가 매주 고른 영상, 모든 회원 공통)으로 기획할 때: list_weekly_videos로 목록(W1, W2…)과 대표의 분석을 보여 주고 고르게 하세요. 회원이 게시글을 복사할 필요는 없어요.
 3. 내 분야에서 최근 터진 영상을 찾을 때: list_references. 결과가 없거나 오래됐으면 start_analysis → analysis_status(몇 분 걸려요).
 4. 영상을 고르면 회원에게 그 영상 주제에 대한 '내 이야기(경험·숫자·실패담)'를 한두 줄 물어보세요. 그다음 get_planning_material(video, my_story)를 부르고, 돌려받은 자료 맨 앞의 '기획안 작성 지시문'을 그대로 따라 기획안과 대본을 쓰세요. 주간 게시글 분석이 들어 있으면 그 분석을 기획의 출발점으로 삼으세요.
 5. 다 쓰면 반드시 save_plan으로 저장하세요(콘봇 '내 기획안'에 보여요). 대화에는 기획안 요약과 훅 대본 정도만 보여 주세요.
@@ -59,9 +59,7 @@ TOOLS = [
     {"name": "change_keywords", "description": "레퍼런스 검색 키워드를 더하거나 뺀다. 다음 분석부터 적용.",
      "inputSchema": _o({"add": {"type": "array", "items": S}, "remove": {"type": "array", "items": S}})},
     {"name": "add_benchmark_channel", "description": "벤치마킹 채널을 직접 추가한다(채널 주소).", "inputSchema": _o({"url": S}, ["url"])},
-    {"name": "import_weekly_post", "description": "학원월드 '주간 급상승 영상' 게시글을 가져온다. text를 비우면 회원이 복사해 둔 클립보드를 직접 읽는다(링크가 살아 있어 이쪽이 정확). 영상마다 게시글의 분석 문단을 함께 저장한다.",
-     "inputSchema": _o({"text": {"type": "string", "description": "게시글 내용(선택). 비우면 클립보드에서 읽음"}})},
-    {"name": "list_weekly_videos", "description": "가져온 주간 게시글 영상 목록(W1, W2…)과 게시글 분석.", "inputSchema": _o({})},
+    {"name": "list_weekly_videos", "description": "이번 주 학원월드 '급상승 영상' 목록(W1, W2…)과 대표가 쓴 분석. 모든 회원에게 같은 목록.", "inputSchema": _o({})},
     {"name": "get_planning_material", "description": "영상 1편의 기획 자료(기획안 작성 지시문 + 내 채널·경험 + 원본 자막·댓글 + 게시글 분석). video는 'R3', 'W2' 또는 유튜브 주소.",
      "inputSchema": _o({"video": S, "my_story": {"type": "string", "description": "이 주제에 대한 회원 본인의 이야기"}}, ["video"])},
     {"name": "save_plan", "description": "완성한 기획안·대본(마크다운)을 콘봇 '내 기획안'에 저장한다.",
@@ -121,7 +119,12 @@ class Server:
     def _weekly(self) -> dict:
         from . import weekly
         from .engine import HOME
-        return weekly.load(HOME)
+        now = time.time()
+        if getattr(self, "_wk", None) and now - self._wk[0] < 600:
+            return self._wk[1]
+        d = weekly.fetch_feed(HOME)
+        self._wk = (now, d)
+        return d
 
     @staticmethod
     def _short(v: dict, code: str) -> dict:
@@ -288,24 +291,10 @@ class Server:
         R.save_settings(s)
         return {"added": ch["name"], "usual_views": int(E.baseline(vids, datetime.now().date(), 7))}
 
-    def t_import_weekly_post(self, a):
-        from . import clip, weekly
-        text, html = (a.get("text") or "").strip(), ""
-        if not text:
-            html, text = clip.read()
-        log = []
-        try:
-            items = weekly.import_post(html=html, text=text, log=log.append)
-        except ValueError as e:
-            raise Need(str(e))
-        return {"videos": [{**self._short(v, f"W{i}"), "post_analysis": (v.get("note") or "")[:600]}
-                           for i, v in enumerate(items, 1)],
-                "next": "회원에게 어떤 영상으로 기획할지, 그 주제에 대한 내 이야기를 물어보세요."}
-
     def t_list_weekly_videos(self, a):
         w = self._weekly()
         if not w.get("items"):
-            raise Need("가져온 주간 게시글이 없어요. 게시글을 복사한 뒤 import_weekly_post를 부르세요.")
+            raise Need("이번 주 급상승 영상이 아직 올라오지 않았어요(대표가 학원월드 게시글을 올리면 자동으로 보여요). list_references로 내 분야 레퍼런스를 대신 볼 수 있어요.")
         return {"post_date": w.get("date"), "videos": [{**self._short(v, f"W{i}"), "post_analysis": (v.get("note") or "")[:600]}
                                                        for i, v in enumerate(w["items"], 1)]}
 
