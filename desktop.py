@@ -87,7 +87,8 @@ class Api:
     # ---- 키워드·구독 리스트·포맷 ----
     def set_keywords(self, kws: list, auto: list) -> bool:
         s = R.load_settings()
-        kws = [k.strip() for k in kws if k.strip()]
+        import unicodedata
+        kws = list(dict.fromkeys(unicodedata.normalize("NFC", k).strip() for k in kws if k.strip()))
         s["kw_removed"] = sorted(set(s.get("kw_removed", [])) | {a for a in auto if a not in kws})
         s["kw_removed"] = [k for k in s["kw_removed"] if k not in kws]
         s["kw_added"] = [k for k in kws if k not in auto]
