@@ -271,10 +271,12 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
         terms = [t.lower() for t in ([anchor] if anchor else []) + kws + formats if t]
         if yt_field:  # 유튜브 교육 분야는 제목에 유튜브 이야기가 있어야 같은 분야 ('회사'·'시대' 같은 말로는 부족)
             terms = sorted(YOUTUBE_FIELD_WORDS | {"유튜브", "youtube"} | {f.lower() for f in formats})
-        on_topic = sum(1 for v in vids if any(t in v.title.lower() for t in terms)) >= 2
+        hits = sum(1 for v in vids if any(t in v.title.lower() for t in terms))
+        on_topic = hits >= 2 and (not yt_field or hits >= 0.25 * len(vids))  # 여행 브이로그가 '구독자 1만 기념' 몇 편으로 끼지 않게
         # 너무 작은 채널(구독자 1천 미만이거나 평소 조회수 1천 미만)은 참고가 어려워 뺀다
         big_enough = (ch.get("subs") or 0) >= 1000 and (ch["avg"] or 0) >= 1000
-        if cid in subs or (smaller and big_enough and recent_long >= 1 and on_topic and cid not in removed_subs):
+        manual = cid in subs and not (subs.get(cid) or {}).get("auto")  # 회원이 직접 넣은 채널은 늘 포함
+        if manual or (smaller and big_enough and recent_long >= 1 and on_topic and cid not in removed_subs):
             bench.append(ch)
         else:
             why[("롤모델보다 큼" if not smaller else "너무 작음" if not big_enough else
@@ -282,9 +284,12 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     log(f"벤치마킹 후보 {len(check_ids)}곳 → {len(bench)}곳" + (" (빠진 이유: " + ", ".join(f"{k} {n}" for k, n in why.most_common()) + ")" if why else "")
         + (f" · 기준 구독자 {max_subs:,}명 미만" if max_subs else ""))
     # 롤모델과 같은 분야로 찾은 채널은 전부 구독 리스트에 (회원이 직접 뺀 채널은 다시 넣지 않음)
+    bench_ids = {ch["id"] for ch in bench}
+    for cid in [k for k, v in subs.items() if isinstance(v, dict) and v.get("auto") and k not in bench_ids]:
+        subs.pop(cid)  # 콘봇이 넣었던 채널이 이번엔 분야 기준에 안 맞으면 뺀다
     for ch in bench:
         if ch["id"] not in removed_subs:
-            subs.setdefault(ch["id"], {"name": ch["name"]})
+            subs.setdefault(ch["id"], {"name": ch["name"], "auto": True})
     for ch in bench:
         ch["subscribed"] = ch["id"] in subs
 
