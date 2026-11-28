@@ -1,0 +1,21 @@
+{
+  "version": "0.2.121",
+  "platform": "Windows-2025Server-10.0.26100-SP0",
+  "python": "3.12.10",
+  "base": "D:\\a\\yujabs-planner\\yujabs-planner\\appx\\_internal",
+  "ui_exists": true,
+  "openssl": "OpenSSL 3.0.16 11 Feb 2025",
+  "certifi": "D:\\a\\yujabs-planner\\yujabs-planner\\appx\\_internal\\certifi\\cacert.pem",
+  "certifi_exists": true,
+  "fingerprints": 2,
+  "sheet_ok": true,
+  "deno": "D:\\a\\yujabs-planner\\yujabs-planner\\appx\\_internal\\bin\\deno.exe",
+  "deno_version": "deno 2.9.8 (stable, release, x86_64-pc-windows-msvc)",
+  "yt_dlp": "2026.11.23",
+  "system_certificates": true,
+  "youtube_channel": "ok 유튜브잡스 5편, 첫 영상 업로드일 2026-11-21",
+  "ffmpeg": "ffmpeg version 9.0.2-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers",
+  "whisper": "1.2.1 / ct2 4.9.1",
+  "mcp": "ok 0.2.121 tools=18",
+  "claude_config": "C:/Users/runneradmin/AppData/Roaming/Claude/claude_desktop_config.json"
+}

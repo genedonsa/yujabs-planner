@@ -1,0 +1,21 @@
+{
+  "version": "0.2.121",
+  "platform": "macOS-26.7.2-arm64-arm-64bit",
+  "python": "3.12.10",
+  "base": "/Users/runner/work/yujabs-planner/yujabs-planner/appx/CornBot.app/Contents/Frameworks",
+  "ui_exists": true,
+  "openssl": "OpenSSL 3.0.16 11 Feb 2025",
+  "certifi": "/Users/runner/work/yujabs-planner/yujabs-planner/appx/CornBot.app/Contents/Frameworks/certifi/cacert.pem",
+  "certifi_exists": true,
+  "fingerprints": 2,
+  "sheet_ok": true,
+  "deno": "/Users/runner/work/yujabs-planner/yujabs-planner/appx/CornBot.app/Contents/Frameworks/bin/deno",
+  "deno_version": "deno 2.9.8 (stable, release, aarch64-apple-darwin)",
+  "yt_dlp": "2026.11.23",
+  "system_certificates": true,
+  "youtube_channel": "ok 유튜브잡스 5편, 첫 영상 업로드일 2026-11-21",
+  "ffmpeg": "ffmpeg version 9.0 Copyright (c) 2000-2026 the FFmpeg developers",
+  "whisper": "1.2.1 / ct2 4.9.1",
+  "mcp": "ok 0.2.121 tools=18",
+  "claude_config": "/Users/runner/Library/Application Support/Claude/claude_desktop_config.json"
+}
