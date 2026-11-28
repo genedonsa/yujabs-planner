@@ -12,6 +12,7 @@ from __future__ import annotations
 import html
 import json
 import re
+import unicodedata
 import urllib.request
 from collections import Counter
 from datetime import date, timedelta
@@ -115,10 +116,13 @@ def experience_text(me: dict, limit: int = 9000) -> str:
 
 # ---------- 2. 키워드 ----------
 def merge_keywords(auto: list[str], s: dict) -> list[str]:
-    removed = set(s.get("kw_removed", []))
-    added = [k for k in s.get("kw_added", []) if k]
-    out = [k for k in auto if k not in removed]
-    return out + [k for k in added if k not in out]
+    nf = lambda k: unicodedata.normalize("NFC", str(k)).strip()
+    removed = {nf(k) for k in s.get("kw_removed", [])}
+    out: list[str] = []
+    for k in [nf(k) for k in auto if nf(k) not in removed] + [nf(k) for k in s.get("kw_added", [])]:
+        if k and k not in out:
+            out.append(k)
+    return out
 
 
 # ---------- 3·4. 채널 평소, 벤치마킹, 레퍼런스 ----------
