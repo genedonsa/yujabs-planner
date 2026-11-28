@@ -20,22 +20,6 @@ import os  # noqa: E402
 API.pick_folder = lambda: os.environ.get("CLIP_DIR", "")
 
 
-def _sample_ids():  # 점검용 주간 게시글을 만들 실제 영상 주소 (분석 결과 → 내 채널 인기 영상 순)
-    from planner import engine as E
-    out = []
-    try:
-        out += [r["url"] for r in json.loads((E.HOME / "last_result.json").read_text(encoding="utf-8"))["refs"][:3]]
-    except Exception:
-        pass
-    try:
-        out += [f"https://youtu.be/{t['id']}" for t in json.loads((E.HOME / "me.json").read_text(encoding="utf-8"))["top"][:3]]
-    except Exception:
-        pass
-    return out[:3]
-
-
-API.sample_ids = _sample_ids
-
 class H(SimpleHTTPRequestHandler):
     def __init__(self, *a, **k):
         super().__init__(*a, directory=str(REPO / "ui"), **k)

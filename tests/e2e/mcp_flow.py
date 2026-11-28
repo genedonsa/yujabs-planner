@@ -74,22 +74,9 @@ refs = call("list_references", limit=10)
 bench = call("list_benchmark_channels")
 rep["keywords"] = bench.get("keywords") if isinstance(bench, dict) else None
 
-# 주간 게시글: 분석에서 찾은 실제 영상(없으면 내 채널 인기 영상)으로 학원월드 글 모양을 만든다
-ids = []
-if isinstance(refs, dict):
-    ids = [r["url"] for r in refs.get("references", [])[:3]]
-if len(ids) < 2:
-    try:
-        me = json.loads((Path.home() / "유잡스 기획" / "me.json").read_text(encoding="utf-8"))
-        ids += [f"https://youtu.be/{t['id']}" for t in me.get("top", [])[:3 - len(ids)]]
-    except (OSError, ValueError):
-        pass
-post = "11월 4주차 주간 급상승 영상\n\n" + "\n".join(
-    f"{i}. 점검채널 — 평소의 {4.5 - i}배\n{u}\n영상 요약: 점검용 요약 {i}\n왜 터졌나: 제목에 숫자와 결과를 먼저 보여 줌\n"
-    f"시청자가 얻은 가치: 바로 따라 할 순서\n남은 궁금증: 작은 채널도 되나\n" for i, u in enumerate(ids, 1))
-rep["post"] = post
-w = call("import_weekly_post", text=post)
-call("list_weekly_videos")
+# 급상승 영상: 모든 회원이 같은 공용 목록(학원월드 주간 게시글 → 시트 '급상승' 탭)을 본다
+wk = call("list_weekly_videos")
+rep["weekly_count"] = len(wk.get("videos") or []) if isinstance(wk, dict) else 0
 mat = call("get_planning_material", video="W1",
            my_story="나도 회사 다니며 유튜브를 시작해서 6개월 동안 수익이 0원이었다. 조회수보다 내 상품을 살 사람을 모으는 게 중요하다는 걸 늦게 알았다.")
 mat_text = mat if isinstance(mat, str) else json.dumps(mat, ensure_ascii=False)

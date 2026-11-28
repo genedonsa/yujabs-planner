@@ -61,16 +61,13 @@ await step('plan', async () => {
   await p.click('#savePlan'); await p.waitForTimeout(1500); await shot('09_plan_saved');
 });
 await step('weekly', async () => {
-  const ids = await p.evaluate(() => window.pywebview.api.sample_ids()); rep.weeklyIds = ids;
-  if (!ids.length) { rep.errors.push('주간 게시글 점검용 영상이 없음'); return; }
-  await p.click('.nav[data-nav="weekly"]'); await p.waitForTimeout(800); await shot('12_weekly_empty');
-  const html = '<h2>11월 4주차 주간 급상승 영상</h2>' + ids.map((u, i) => `<p>${i + 1}. 점검채널 — 평소의 ${(4.5 - i).toFixed(1)}배</p><a href="${u}"><img src="https://i.ytimg.com/vi/${u.slice(-11)}/hqdefault.jpg"></a><p>영상 요약: 점검 요약 ${i + 1}</p><p>왜 터졌나: 제목에 결과를 먼저 보여 줌</p><p>시청자가 얻은 가치: 따라 할 순서</p>`).join('');
-  await p.evaluate((h) => { const dt = new DataTransfer(); dt.setData('text/html', h); dt.setData('text/plain', 'x'); document.getElementById('wPaste').dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); }, html);
-  for (let i = 0; i < 90; i++) { await p.waitForTimeout(1000); if ((await p.$$('#wGrid .card')).length || await p.isVisible('#wErr')) break; }
-  await p.waitForTimeout(1500); await shot('13_weekly_cards');
-  rep.weekly = await p.$$eval('#wGrid .card', e => e.map(x => x.innerText.replace(/\n/g, ' | ').slice(0, 200)));
-  if (await p.isVisible('#wErr')) { rep.errors.push('주간 게시글: ' + await p.textContent('#wErr')); return; }
-  await p.hover('#wGrid .card .tw'); await p.click('[data-wplan="0"]'); await p.waitForTimeout(1200);
+  // 급상승 영상: 공용 목록(시트 '급상승' 탭)이 레퍼런스 맨 앞에 모든 회원에게 똑같이 보여야 한다
+  await p.click('.nav[data-nav="refs"]'); await p.waitForTimeout(800);
+  for (let i = 0; i < 30; i++) { if ((await p.$$('.wcard')).length) break; await p.waitForTimeout(1000); }
+  await shot('13_weekly_cards');
+  rep.weekly = await p.$$eval('.wcard', e => e.map(x => x.innerText.replace(/\n/g, ' | ').slice(0, 200)));
+  if (!rep.weekly.length) { rep.errors.push('급상승 영상 카드가 레퍼런스에 안 보임'); return; }
+  await p.click('.wcard .cact [data-plan]'); await p.waitForTimeout(1200);
   await p.fill('#story', '나도 회사 다니며 유튜브를 시작해 6개월 동안 수익이 0원이었다. 조회수보다 내 상품을 살 사람을 모으는 게 중요하다는 걸 늦게 알았다.');
   try { fs.unlinkSync(`${OUT}/copied.md`); } catch (e) {}
   await p.click('#mkMat'); for (let i = 0; i < 120; i++) { await p.waitForTimeout(1000); const m = await p.textContent('#matMsg'); if (m && !m.includes('가져오는 중')) break; }
