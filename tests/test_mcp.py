@@ -226,3 +226,11 @@ def test_field_keywords_phrases():
     ks = field_keywords([me, ed], YOUTUBE_FIELD_WORDS, True)
     assert ks[:2] == ["유튜브 수익화", "1인 사업"]
     assert not {"조회수", "구독자", "유튜버", "알아야", "아무", "알려주", "살아남"} & set(ks)
+
+
+def test_field_keywords_self_role_no_chain():
+    from planner.discover import YOUTUBE_FIELD_WORDS, field_keywords
+    me = ["한쿡사람들 아직 몰라 외국 할아버지 편집 비법", "한쿡사람들 아직 몰라 외국 할아버지 편집 비법 (영어)",
+          "퇴사하고 월급", "월급 10만명", "유튜브 수익화 현실", "유튜브 수익화 3가지", "월급 퇴사"]
+    ks = field_keywords([me, list(me)], YOUTUBE_FIELD_WORDS, True)  # 롤모델 칸에 내 채널을 또 넣은 경우
+    assert ks[0] == "유튜브 수익화" and not any(w in " ".join(ks) for w in ("아직", "몰라", "만명"))
