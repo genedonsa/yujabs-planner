@@ -25,6 +25,7 @@ import webview
 from planner import access, collect
 from planner import engine as E
 from planner import run as R
+from planner import series as SR
 from planner import updater as U
 from planner.version import VERSION
 
@@ -64,6 +65,7 @@ class Api:
         safe = {k: v for k, v in s.items() if k not in ("password", "password_fp")}
         return {"code_ok": ok, "access_error": access_error, "had_password": bool(s.get("password_fp") or s.get("password")),
                 "settings": safe, "criteria": dict(E.DEFAULT_CRITERIA),
+                "series": SR.load(s), "modes": SR.cached(),
                 "last": last, "version": VERSION, "home": str(E.HOME), "month": f"{datetime.now().year}년 {datetime.now().month}월"}
 
     def check_code(self, password: str) -> dict:
@@ -80,6 +82,14 @@ class Api:
 
     def save_settings(self, data: dict) -> bool:
         s = R.load_settings()
+        data = dict(data)
+        if "series" in data:  # 시리즈를 저장하면 예전 '포맷' 칸도 이름으로 맞춰 둔다(옛 코드·Claude 호환)
+            data["series"] = SR.normalize(data["series"], set(SR.cached()))
+            data["formats"] = [x["name"] for x in data["series"]]
+        elif "formats" in data:  # 레퍼런스 화면에서 이름만 더한 경우 → 시리즈에도 추가
+            have = {x["name"]: x for x in SR.load(s)}
+            data["series"] = SR.normalize([have.get(f, {"name": f}) for f in data["formats"]], set(SR.cached()))
+            data["formats"] = [x["name"] for x in data["series"]]
         s.update({k: v for k, v in data.items() if k not in ("password", "password_fp")})
         R.save_settings(s)
         return True
@@ -213,6 +223,10 @@ class Api:
         d = weekly.fetch_feed(E.HOME)
         self._weekly_cache = (time.time(), d)
         return d
+
+    def get_modes(self) -> dict:
+        """대표 시트의 찾기 방식을 새로 읽는다 (시리즈 편집 화면을 열 때)."""
+        return SR.modes(refresh=True)
 
     def reset(self, everything: bool = False) -> dict:
         """설정 → 처음 상태로. 기본은 암호·채널·구독 리스트만, everything이면 '유잡스 기획' 폴더 전체를 휴지통으로."""
