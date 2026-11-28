@@ -308,6 +308,8 @@ img.noimg{background:var(--soft);min-height:40px;color:transparent}
   <div class="setg"><h3>저장 위치·버전</h3>
     <div class="setr"><b>자료 폴더</b><span>홈 폴더의 '유잡스 기획'</span><button class="btn sm" id="openHome">열기</button></div>
     <div class="setr"><b>버전</b><span id="verLine"></span><button class="btn sm" id="checkUpd">업데이트 확인</button></div></div>
+  <div class="setg"><h3>처음 상태로</h3>
+    <div class="setr"><b>초기화</b><span>암호·내 채널·롤모델·구독 리스트를 지우고 처음 화면부터 다시 해요</span><button class="btn sm" id="resetBtn">초기화</button></div></div>
   </div>
 </section>
 </main>
@@ -320,6 +322,14 @@ img.noimg{background:var(--soft);min-height:40px;color:transparent}
   <button class="btn go" id="updGo">지금 업데이트 (1분)</button>
   <p class="hint" style="text-align:center">받은 뒤 콘봇이 저절로 다시 열려요. 설정·경험·지난 기록은 그대로 남아요.</p>
   <button class="btn" id="updLater" style="border:0;background:none;color:var(--muted)">다음에 할게요</button>
+</div></div>
+<div class="modal" id="resetBox" hidden><div class="panel">
+  <h2 class="disp" style="font-size:24px">처음 상태로 되돌릴까요?</h2>
+  <p>이번 달 암호, 내 채널·롤모델·경험·포맷, 키워드, 구독 리스트가 지워지고 암호 화면부터 다시 시작해요.</p>
+  <label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="resetAll" style="margin-top:5px;flex:none;width:16px;height:16px"><span style="flex:1">만든 기획안·분석 자료·완성 영상 기록까지 모두 지우기<br><small class="hint">'유잡스 기획' 폴더 전체가 휴지통으로 가요. 휴지통에서 되살릴 수 있어요.</small></span></label>
+  <p class="err" id="resetErr" hidden></p>
+  <button class="btn go" id="resetGo">초기화하기</button>
+  <button class="btn" id="resetNo" style="border:0;background:none;color:var(--muted)">그만두기</button>
 </div></div>
 <div class="toast" id="toast" hidden></div>
 
@@ -523,6 +533,11 @@ async function renderLink(){const l=await api.claude_link_status();
 $("linkBtn").onclick=async()=>{const r=await api.claude_link();toast(r.ok?"연결했어요. Claude 앱을 완전히 끄고 다시 열어 주세요":(r.error||"연결하지 못했어요"));renderLink();};
 function renderSettings(){renderLink();}
 $("openHome").onclick=()=>api.open_folder(state.home||"");
+$("resetBtn").onclick=()=>{$("resetAll").checked=false;$("resetErr").hidden=true;$("resetBox").hidden=false;};
+$("resetNo").onclick=()=>{$("resetBox").hidden=true;};
+$("resetGo").onclick=async()=>{const b=$("resetGo");b.disabled=true;const r=await api.reset($("resetAll").checked);b.disabled=false;
+  if(!r||!r.ok){$("resetErr").textContent=(r&&r.error)||"지우지 못했어요";$("resetErr").hidden=false;return;}
+  location.reload();};
 
 /* ---------- 업데이트 ---------- */
 let updAsked=false;
