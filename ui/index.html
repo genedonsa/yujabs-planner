@@ -65,7 +65,11 @@ label{font-weight:800;font-size:14px;display:block}
 .tg{display:inline-flex;align-items:center;gap:4px;background:var(--yellow-soft);border:1px solid #EAD58A;border-radius:999px;padding:3px 6px 3px 11px;font-size:13.5px;font-weight:700}
 .tg button{border:0;background:none;cursor:pointer;color:var(--usink);font-size:15px;line-height:1;padding:0 3px}
 .tgin{border:1px dashed var(--line);border-radius:999px;padding:4px 11px;font-size:13.5px;min-width:240px;background:#fff}
-#fmtEdit .tgin{min-width:330px}
+.sercard{border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;background:#fff}
+.sercard .srow{display:flex;gap:8px;align-items:center}.sercard .srow input{flex:1;min-width:0}
+.sercard small{color:var(--muted);font-weight:400}.sercard textarea{min-height:54px}
+.sercard label,.sercard input,.sercard textarea{font-weight:400}
+.mpick{display:flex;flex-wrap:wrap;gap:6px}.mpick .pill{font-size:13.5px}
 /* 진행 */
 .prog{max-width:580px;margin:30px auto 0}
 .plist{list-style:none;padding:0;margin:16px 0 0;display:flex;flex-direction:column;gap:10px}
@@ -199,7 +203,7 @@ img.noimg{background:var(--soft);min-height:40px;color:transparent}
 <section id="s-setup" class="screen" hidden>
   <div class="setup panel stack">
     <div><div class="row" style="flex-wrap:nowrap;gap:14px"><img src="cony_info.png" alt="" style="width:64px;flex:none"><h1 class="disp" style="font-size:30px">나와 롤모델을 알려 주세요</h1></div>
-      <p class="hint">이걸로 내 경험을 익히고, 롤모델과 비슷한 작은 벤치마킹 채널을 찾고, 내가 할 포맷에서 터진 영상을 골라요. 모두 나중에 설정에서 바꿀 수 있어요.</p></div>
+      <p class="hint">이걸로 내 경험을 익히고, 롤모델과 비슷한 작은 벤치마킹 채널을 찾고, 내 시리즈마다 터진 영상을 골라요. 모두 나중에 설정에서 바꿀 수 있어요.</p></div>
     <div class="stack" style="gap:6px"><label for="myCh">내 채널</label><input type="text" id="myCh" placeholder="https://www.youtube.com/@내채널"></div>
     <div class="stack" style="gap:8px"><label>롤모델 채널 <span class="hint">많이 넣을수록 잘 찾아요</span></label>
       <div id="models" class="stack" style="gap:8px"></div>
@@ -211,10 +215,11 @@ img.noimg{background:var(--soft);min-height:40px;color:transparent}
     <div class="stack" style="gap:8px"><label>나에 대한 정보가 더 있는 링크 <span class="hint">블로그, 인스타그램, 강의 상세페이지, 인터뷰 기사 등. 넣은 만큼 읽어서 내 경험으로 익혀요</span></label>
       <div id="links" class="stack" style="gap:8px"></div>
       <div><button class="btn" id="addLink">＋ 링크 추가</button></div></div>
-    <div class="stack" style="gap:8px"><label>내가 만들 콘텐츠 포맷 <span class="hint">하나만 있어도 돼요. 하면서 하나씩 늘려 가세요. 고른 포맷의 레퍼런스만 보여 드려요</span></label>
-      <div class="tagedit" id="fmtEdit"></div></div>
-    <details class="crit"><summary><b>찾는 기준</b> <span class="hint">유잡스 기준 · 모든 회원 같아요</span></summary>
-      <ul><li>최근 7일 안에 올라온 롱폼 영상 (쇼츠·회원 전용 제외)</li><li>조회수 1만 회 이상</li><li>그 채널 평소(최근 3개월 롱폼 평균)보다 3배 이상</li><li>구독자 수는 따지지 않아요</li><li>지난번에 보여 드린 영상은 빼요</li></ul></details>
+    <div class="stack" style="gap:8px"><label>내 시리즈 <span class="hint">내가 꾸준히 만들 콘텐츠 묶음이에요. 시리즈마다 찾기 방식과 소재 채널을 정하면 그 시리즈에 맞는 레퍼런스를 따로 찾아요. 하나만 있어도 돼요</span></label>
+      <div id="serList" class="stack" style="gap:10px"></div>
+      <div><button class="btn" id="addSer">＋ 시리즈 추가</button></div></div>
+    <details class="crit"><summary><b>찾기 방식</b> <span class="hint">유잡스가 정해요 · 시리즈마다 하나를 골라요</span></summary>
+      <ul id="modeList"></ul><p class="hint" style="margin:6px 0 0">어떤 방식이든 '그 채널 평소(최근 3개월 롱폼 평균)보다 몇 배'를 따져요. 그래서 그냥 유튜브 검색과 달리, 작은 채널에서 평소보다 크게 먹힌 영상을 찾아내요. 쇼츠와 지난번에 보여 드린 영상은 빼요.</p></details>
     <p class="err" id="setupErr" hidden></p>
     <div class="row" style="justify-content:flex-end"><button class="btn go" id="runBtn">분석 시작</button></div>
   </div>
@@ -295,11 +300,9 @@ img.noimg{background:var(--soft);min-height:40px;color:transparent}
   <div class="lhead"><div><p class="hint">내 채널·롤모델·키워드는 여기서 바꿔요</p><h1>설정</h1></div></div>
   <div class="setlist">
   <div class="setg"><h3>나</h3>
-    <div class="setr"><b>내 채널·롤모델·경험·링크·포맷</b><span>처음에 넣은 입력을 고쳐요</span><button class="btn sm" id="editSetup">고치기</button></div></div>
-  <div class="setg"><h3>찾는 기준 <small class="hint">유잡스 기준 · 모든 회원 같아요</small></h3>
-    <div class="setr"><b>기간</b><span>최근 7일 안에 올라온 롱폼</span><span class="chip">7일</span></div>
-    <div class="setr"><b>최소 조회수</b><span>이보다 적으면 빼요</span><span class="chip">1만 회</span></div>
-    <div class="setr"><b>평소보다 몇 배</b><span>그 채널 최근 3개월 롱폼 평균 대비</span><span class="chip">3배</span></div></div>
+    <div class="setr"><b>내 채널·롤모델·경험·링크·시리즈</b><span>처음에 넣은 입력을 고쳐요</span><button class="btn sm" id="editSetup">고치기</button></div></div>
+  <div class="setg"><h3>찾기 방식 <small class="hint">유잡스가 정해요 · 시리즈마다 '고치기'에서 골라요</small></h3>
+    <div id="setModes"></div></div>
   <div class="setg"><h3>키워드·구독 리스트</h3>
     <div class="setr"><b>키워드와 채널</b><span>벤치마킹 채널 화면에서 빼고 더해요</span><button class="btn sm" data-nav="bench">열기</button></div></div>
   <div class="setg"><h3>Claude 앱 연결</h3>
@@ -325,7 +328,7 @@ img.noimg{background:var(--soft);min-height:40px;color:transparent}
 </div></div>
 <div class="modal" id="resetBox" hidden><div class="panel">
   <h2 class="disp" style="font-size:24px">처음 상태로 되돌릴까요?</h2>
-  <p>이번 달 암호, 내 채널·롤모델·경험·포맷, 키워드, 구독 리스트가 지워지고 암호 화면부터 다시 시작해요.</p>
+  <p>이번 달 암호, 내 채널·롤모델·경험·시리즈, 키워드, 구독 리스트가 지워지고 암호 화면부터 다시 시작해요.</p>
   <label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="resetAll" style="margin-top:5px;flex:none;width:16px;height:16px"><span style="flex:1">만든 기획안·분석 자료·완성 영상 기록까지 모두 지우기<br><small class="hint">'유잡스 기획' 폴더 전체가 휴지통으로 가요. 휴지통에서 되살릴 수 있어요.</small></span></label>
   <p class="err" id="resetErr" hidden></p>
   <button class="btn go" id="resetGo">초기화하기</button>
@@ -392,7 +395,7 @@ $("codeBtn").onclick=async()=>{const r=await api.check_code($("code").value);
 $("code").onkeydown=e=>{if(e.key==="Enter")$("codeBtn").click();};
 
 /* ---------- 입력 ---------- */
-let fmts=[];
+
 function rowInput(box,val,ph){const d=document.createElement("div");d.className="chrow";
   d.innerHTML=`<input type="text" value="${esc(val)}" placeholder="${ph}"><button class="btn">삭제</button>`;
   d.querySelector("button").onclick=()=>d.remove(); box.appendChild(d);}
@@ -405,7 +408,28 @@ function fillSetup(){const s=state.settings||{};
   $("myCh").value=s.my_channel||""; $("intro").value=s.intro||""; $("aud").value=s.audience||"";
   $("models").innerHTML=""; (s.role_models&&s.role_models.length?s.role_models:["",""]).forEach(v=>rowInput($("models"),v,"https://www.youtube.com/@롤모델채널"));
   $("links").innerHTML=""; (s.links&&s.links.length?s.links:[""]).forEach(v=>rowInput($("links"),v,"https://"));
-  fmts=[...(s.formats||[])]; tagEditor($("fmtEdit"),fmts,"＋ 포맷 입력 후 Enter (예: 해외에서 난리 난 정보 가져오기)");}
+  sers=(state.series||[]).map(x=>({...x}));if(!sers.length)sers=[{name:"",desc:"",mode:"weekly",channels:[],keywords:[]}];renderSer();
+  api.get_modes().then(m=>{if(m&&Object.keys(m).length){state.modes=m;renderSer();}}).catch(()=>{});}
+let sers=[];
+const MODES=()=>state.modes||{weekly:{name:"이번 주 급상승",days:7,ratio:3,min_views:10000,desc:""}};
+const modeLabel=m=>m?`${m.name} · 최근 ${m.days}일 · 평소의 ${m.ratio}배${m.min_views>=10000?` · 조회 ${m.min_views/10000}만+`:m.min_views?` · 조회 ${m.min_views}+`:""}`:"";
+function readSer(){document.querySelectorAll("#serList .sercard").forEach((c,i)=>{const x=sers[i];if(!x)return;
+  x.name=c.querySelector("[data-k=name]").value.trim();x.desc=c.querySelector("[data-k=desc]").value.trim();
+  x.channels=c.querySelector("[data-k=channels]").value.split(/\n/).map(v=>v.trim()).filter(Boolean);
+  x.keywords=c.querySelector("[data-k=keywords]").value.split(/,/).map(v=>v.trim()).filter(Boolean);});}
+function renderSer(){const M=MODES();
+  $("modeList").innerHTML=Object.values(M).map(m=>`<li><b>${esc(m.name)}</b> — ${esc(modeLabel(m).split(" · ").slice(1).join(" · "))}${m.desc?`<br><small class="hint">${esc(m.desc)}</small>`:""}</li>`).join("");
+  $("serList").innerHTML=sers.map((x,i)=>{if(!M[x.mode])x.mode="weekly";return `<div class="sercard">
+    <div class="srow"><input type="text" data-k="name" maxlength="40" value="${esc(x.name)}" placeholder="시리즈 이름 (예: 해외 유튜브 성공 사례)" aria-label="시리즈 ${i+1} 이름">${sers.length>1?`<button class="btn sm" data-del="${i}">빼기</button>`:""}</div>
+    <input type="text" data-k="desc" maxlength="200" value="${esc(x.desc||"")}" placeholder="한 줄 설명 (예: 해외에서 화제가 된 유튜브 성공 사례를 한국 시청자에게 소개)" aria-label="시리즈 ${i+1} 설명">
+    <div><small>찾기 방식</small><div class="mpick">${Object.entries(M).map(([k,m])=>`<button class="pill" aria-pressed="${k===x.mode}" data-mode="${k}" data-i="${i}">${esc(m.name)}</button>`).join("")}</div>
+      <small>${esc(modeLabel(M[x.mode]))}</small></div>
+    <label class="stack" style="gap:4px"><small>소재 채널 (선택) · 이 시리즈 소재가 자주 나오는 채널 주소, 한 줄에 하나</small><textarea data-k="channels" rows="2" placeholder="https://www.youtube.com/@ThinkMediaPodcast">${esc((x.channels||[]).join("\n"))}</textarea></label>
+    <label class="stack" style="gap:4px"><small>검색어 (선택) · 쉼표로 나눠요. 해외 소재면 영어로</small><input type="text" data-k="keywords" value="${esc((x.keywords||[]).join(", "))}" placeholder="예: youtube success story, quit my job youtube"></label></div>`;}).join("");
+  $("addSer").hidden=sers.length>=6;
+  document.querySelectorAll("#serList [data-mode]").forEach(b=>b.onclick=()=>{readSer();sers[+b.dataset.i].mode=b.dataset.mode;renderSer();});
+  document.querySelectorAll("#serList [data-del]").forEach(b=>b.onclick=()=>{readSer();sers.splice(+b.dataset.del,1);renderSer();});}
+$("addSer").onclick=()=>{readSer();sers.push({name:"",desc:"",mode:"weekly",channels:[],keywords:[]});renderSer();$("serList").lastElementChild.querySelector("input").focus();};
 $("addModel").onclick=()=>rowInput($("models"),"","https://www.youtube.com/@롤모델채널");
 $("addLink").onclick=()=>rowInput($("links"),"","https://");
 $("editSetup").onclick=()=>{fillSetup();show("setup");};
@@ -414,12 +438,15 @@ $("runBtn").onclick=async()=>{
   const my=$("myCh").value.trim(), models=vals($("models"));
   if(!/youtube\.com|youtu\.be/.test(my)){$("setupErr").textContent="내 채널 주소를 넣어 주세요. (유튜브에서 내 채널을 열고 주소창을 복사)";$("setupErr").hidden=false;return;}
   if(!models.length){$("setupErr").textContent="롤모델 채널을 하나 이상 넣어 주세요.";$("setupErr").hidden=false;return;}
+  readSer();const names=sers.map(x=>x.name).filter(Boolean);
+  if(new Set(names).size!==names.length){$("setupErr").textContent="시리즈 이름이 겹쳐요. 이름을 다르게 해 주세요.";$("setupErr").hidden=false;return;}
+  if(names.includes("급상승 영상")){$("setupErr").textContent="'급상승 영상'은 모든 회원 공통 목록 이름이라 시리즈 이름으로 쓸 수 없어요.";$("setupErr").hidden=false;return;}
   $("setupErr").hidden=true;
-  await api.save_settings({my_channel:my,role_models:models,intro:$("intro").value,audience:$("aud").value.trim(),links:vals($("links")),formats:fmts});
+  await api.save_settings({my_channel:my,role_models:models,intro:$("intro").value,audience:$("aud").value.trim(),links:vals($("links")),series:sers.filter(x=>x.name)});
   state=await api.get_state(); runAnalysis();};
 
 /* ---------- 분석 ---------- */
-const STEPS=[["me","내 채널과 내 경험 읽기 (영상 대본·소개·링크)"],["models","롤모델 채널의 영상·키워드"],["search","키워드와 내 포맷으로 검색"],["bench","작은 벤치마킹 채널 찾기"],["pick","기준을 넘은 영상 고르기"]];
+const STEPS=[["me","내 채널과 내 경험 읽기 (영상 대본·소개·링크)"],["models","롤모델 채널의 영상·키워드"],["search","키워드와 내 시리즈로 검색"],["bench","작은 벤치마킹 채널 찾기"],["pick","기준을 넘은 영상 고르기"]];
 async function runAnalysis(){show("prog");$("perr").hidden=true;$("progH").textContent="분석하는 중이에요";$("progHint").hidden=false;await api.start();poll();}
 async function poll(){const p=await api.get_progress();const idx=STEPS.findIndex(s=>s[0]===p.step);
   $("plist").innerHTML=STEPS.map((s,i)=>`<li class="${p.step==="done"||i<idx?"done":i===idx?"now":""}"><span class="dot">${p.step==="done"||i<idx?"✓":""}</span>${s[1]}</li>`).join("");
@@ -451,18 +478,18 @@ $("addSubBtn").onclick=async()=>{const u=$("addSub").value.trim();if(!u)return;$
 /* ---------- 레퍼런스 ---------- */
 let W={items:[]};
 async function loadWeekly(){try{W=await api.weekly_list()||{items:[]};}catch(e){W={items:[]};}}
-function renderRefs(){const wk=(W&&W.items)||[];const my=(state.settings.formats||[]);
+function renderRefs(){const wk=(W&&W.items)||[];const SER=state.series||[];const my=SER.map(x=>x.name);const M=MODES();
   $("rerun2").hidden=!R;$("refFilters").hidden=false;
-  $("refCrit").textContent=R?`${R.date} 분석 · 최근 7일 · 조회 1만+ · 평소 3배+ (유잡스 기준)`:"아직 내 분야 분석 전이에요. 급상승 영상은 모든 회원에게 똑같이 보여요";
+  $("refCrit").textContent=R?`${R.date} 분석 · 시리즈마다 찾기 방식이 달라요 (유잡스가 정한 방식)`:"아직 내 분야 분석 전이에요. 급상승 영상은 모든 회원에게 똑같이 보여요";
   const wkNote=wk.length?`학원월드 주간 게시글${W.post_title?` '${esc(W.post_title)}'`:""}에서 대표가 고른 영상이에요. 분석 글도 기획 자료에 함께 들어가요.${W.offline?" (인터넷이 안 돼서 지난번에 받아 둔 목록이에요)":""}`:"이번 주 급상승 영상이 아직 올라오지 않았어요. 학원월드에 주간 게시글이 올라오면 여기에 저절로 보여요.";
   const groups=[{t:"급상승 영상",items:wk,note:wkNote,weekly:true}];
-  if(R){groups.push(...my.map(f=>({t:f,items:R.refs.filter(r=>r.format===f)})));
+  if(R){groups.push(...SER.map(x=>({t:x.name,items:R.refs.filter(r=>r.format===x.name),note:esc([x.desc,modeLabel(M[x.mode]||M.weekly)].filter(Boolean).join(" · "))})));
     const rest=R.refs.filter(r=>!my.includes(r.format));
-    if(rest.length)groups.push({t:"포맷 미정",items:rest,note:"내 포맷과 맞는지 콘봇이 확실히 몰라서 따로 모았어요"});}
+    if(rest.length)groups.push({t:"시리즈 미정",items:rest,note:"어느 시리즈에 맞는지 콘봇이 확실히 몰라서 따로 모았어요 (유잡스 기본: 7일 · 평소의 3배 · 조회 1만+)"});}
   if(curF!=="전체"&&!groups.some(g=>g.t===curF))curF="전체";
-  $("ftabs").innerHTML='<span>포맷</span>'+["전체",...groups.map(g=>g.t)].map(t=>`<button class="pill" aria-pressed="${t===curF}" data-f="${esc(t)}">${esc(t)}</button>`).join("")+(R?'<input class="tgin" id="addF" placeholder="＋ 내 포맷 추가 후 Enter">':"");
+  $("ftabs").innerHTML='<span>시리즈</span>'+["전체",...groups.map(g=>g.t)].map(t=>`<button class="pill" aria-pressed="${t===curF}" data-f="${esc(t)}">${esc(t)}</button>`).join("")+(R?'<input class="tgin" id="addF" placeholder="＋ 내 시리즈 추가 후 Enter">':"");
   document.querySelectorAll("#ftabs .pill").forEach(b=>b.onclick=()=>{curF=b.dataset.f;renderRefs();});
-  if($("addF"))$("addF").onkeydown=async e=>{const v=e.target.value.trim();if(e.key==="Enter"&&v){if(v==="급상승 영상"||my.includes(v)){toast("이미 있는 포맷이에요");return;}const f=[...my,v];await api.save_settings({formats:f});state=await api.get_state();renderRefs();toast("포맷을 추가했어요. 다시 찾기를 누르면 이 포맷으로도 찾아요");}};
+  if($("addF"))$("addF").onkeydown=async e=>{const v=e.target.value.trim();if(e.key==="Enter"&&v){if(v==="급상승 영상"||my.includes(v)){toast("이미 있는 시리즈예요");return;}await api.save_settings({series:[...SER,{name:v,mode:"weekly"}]});state=await api.get_state();renderRefs();toast("시리즈를 추가했어요. 설정 → 고치기에서 찾기 방식·소재 채널을 정하고 다시 찾기를 눌러 주세요");}};
   const showG=groups.filter(g=>curF==="전체"||g.t===curF);
   const card=r=>`<div class="card${r.format==="급상승 영상"?" wcard":""}"><div class="tw"><img class="thumb" src="${esc(r.thumb)}" alt="" loading="lazy">${r.ratio?`<span class="ratio"><small>평소의</small>${r.ratio}배</span>`:""}
      <div class="hov"><button class="btn go" data-plan="${esc(r.id)}">기획하기</button></div></div>
@@ -471,8 +498,8 @@ function renderRefs(){const wk=(W&&W.items)||[];const my=(state.settings.formats
      ${r.format==="급상승 영상"?(r.note?`<p class="wnote">${esc(r.note)}</p>`:""):`<div class="why">${esc(r.source)} · 평소 ${fmtN(r.baseline)}회</div>`}
      <div class="cact"><button class="btn sm" data-plan="${esc(r.id)}">이 영상으로 기획하기</button></div></div>`;
   $("fmts").innerHTML=showG.map(g=>`<section class="fmt"><div class="fhead"><div><h2>${esc(g.t)}</h2>${g.note?`<p class="hint">${g.note}</p>`:""}</div><span class="chip">${g.items.length}편</span></div>
-    ${g.items.length?`<div class="grid">${g.items.map(card).join("")}</div>`:(g.weekly?"":'<p class="hint">이번엔 이 포맷에서 기준을 넘은 영상이 없어요.</p>')}</section>`).join("")
-    +(!R&&(curF==="전체")?`<div class="empty-box"><img src="cony_info.png" alt=""><h2 class="disp" style="font-size:24px">내 분야 레퍼런스는 분석 후에 나와요</h2><p class="hint">내 채널과 롤모델을 넣고 분석을 시작하면, 벤치마킹 채널과 내 포맷에서 터진 영상이 여기에 함께 나와요.</p><button class="btn go" data-start>분석 시작하러 가기</button></div>`:"");
+    ${g.items.length?`<div class="grid">${g.items.map(card).join("")}</div>`:(g.weekly?"":'<p class="hint">이번엔 이 시리즈에서 찾기 방식 기준을 넘은 영상이 없어요. 설정 → 고치기에서 소재 채널을 넣거나 찾기 방식을 바꿔 보세요.</p>')}</section>`).join("")
+    +(!R&&(curF==="전체")?`<div class="empty-box"><img src="cony_info.png" alt=""><h2 class="disp" style="font-size:24px">내 분야 레퍼런스는 분석 후에 나와요</h2><p class="hint">내 채널과 롤모델을 넣고 분석을 시작하면, 벤치마킹 채널과 내 시리즈마다 터진 영상이 여기에 함께 나와요.</p><button class="btn go" data-start>분석 시작하러 가기</button></div>`:"");
   $("refN").textContent=showG.reduce((a,g)=>a+g.items.length,0)+"편";
   const all=[...wk,...(R?R.refs:[])];
   document.querySelectorAll("[data-plan]").forEach(b=>b.onclick=()=>startPlan(all.find(r=>r.id===b.dataset.plan)));
@@ -485,7 +512,7 @@ function renderSide(){$("planSide").innerHTML='<span class="hint" style="padding
   document.querySelectorAll("[data-pi]").forEach(b=>b.onclick=()=>{curPlan=plans[+b.dataset.pi];renderPlan();});}
 function renderPlan(){renderSide();const P=curPlan;if(!P){$("planBody").innerHTML='<div class="empty-box"><img src="cony_info.png" alt=""><h2 class="disp" style="font-size:24px">아직 기획안이 없어요</h2><p class="hint">레퍼런스 화면에서 마음에 드는 영상의 기획하기를 눌러 주세요.</p><button class="btn go" data-nav="refs">레퍼런스 보러 가기</button></div>';return;}const v=P.video;
   const head=`<div class="row" style="align-items:start;flex-wrap:nowrap;gap:16px"><img src="${esc(v.thumb)}" alt="" style="width:220px;border-radius:6px;flex:none">
-    <div class="stack" style="gap:4px"><b style="font-size:17px;line-height:1.4">${esc(v.title)}</b><span class="hint">${esc(v.channel)} · 조회 ${fmtN(v.views)} · ${v.ratio?`평소의 ${v.ratio}배 · `:""}${esc(v.format||"포맷 미정")}</span>
+    <div class="stack" style="gap:4px"><b style="font-size:17px;line-height:1.4">${esc(v.title)}</b><span class="hint">${esc(v.channel)} · 조회 ${fmtN(v.views)} · ${v.ratio?`평소의 ${v.ratio}배 · `:""}${esc(v.format||"시리즈 미정")}</span>
     <div class="row"><button class="btn sm" data-u="${esc(v.url)}">유튜브에서 보기</button>${P.folder?`<button class="btn sm" data-f="${esc(P.folder)}">자료 폴더</button>`:""}</div></div></div>`
     +(v.note?`<div class="panel"><b>학원월드 게시글 분석</b><p class="wnote" style="max-height:none">${esc(v.note)}</p><p class="hint" style="margin:6px 0 0">이 분석도 기획 자료에 함께 들어가요.</p></div>`:"");
   if(P.plan){$("planBody").innerHTML=head+`<div class="row"><button class="btn sm" id="cpPlan">기획안 복사</button><button class="btn sm" id="rePlan">다시 만들기</button></div><div class="panel md">${md(P.plan)}</div>`;
@@ -531,7 +558,9 @@ async function renderLink(){const l=await api.claude_link_status();
   $("linkLine").textContent=l.dev?"개발용 실행이에요":l.linked?"연결됨 · Claude 앱 입력창 아래 '도구'(또는 + 메뉴)에 콘봇이 보여요":l.broken?"Claude 앱 설정 파일이 깨져 있어요":l.claude_installed?"아직 연결 안 됨":"Claude 데스크톱 앱이 아직 없어요 (claude.ai/download)";
   $("linkBtn").textContent=l.linked?"다시 연결":"연결하기";}
 $("linkBtn").onclick=async()=>{const r=await api.claude_link();toast(r.ok?"연결했어요. Claude 앱을 완전히 끄고 다시 열어 주세요":(r.error||"연결하지 못했어요"));renderLink();};
-function renderSettings(){renderLink();}
+function renderSettings(){renderLink();const M=MODES();
+  $("setModes").innerHTML=Object.values(M).map(m=>`<div class="setr"><b>${esc(m.name)}</b><span>${esc(m.desc||"")}</span><span class="chip">${esc(modeLabel(m).split(" · ").slice(1).join(" · "))}</span></div>`).join("");
+  api.get_modes().then(m=>{if(m&&Object.keys(m).length&&JSON.stringify(m)!==JSON.stringify(state.modes)){state.modes=m;renderSettings();}}).catch(()=>{});}
 $("openHome").onclick=()=>api.open_folder(state.home||"");
 $("resetBtn").onclick=()=>{$("resetAll").checked=false;$("resetErr").hidden=true;$("resetBox").hidden=false;};
 $("resetNo").onclick=()=>{$("resetBox").hidden=true;};
