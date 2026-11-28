@@ -234,3 +234,18 @@ def test_field_keywords_self_role_no_chain():
           "퇴사하고 월급", "월급 10만명", "유튜브 수익화 현실", "유튜브 수익화 3가지", "월급 퇴사"]
     ks = field_keywords([me, list(me)], YOUTUBE_FIELD_WORDS, True)  # 롤모델 칸에 내 채널을 또 넣은 경우
     assert ks[0] == "유튜브 수익화" and not any(w in " ".join(ks) for w in ("아직", "몰라", "만명"))
+
+
+def test_series_tools(srv, monkeypatch):
+    from planner import series as SR
+    monkeypatch.setattr(SR, "modes", lambda home=None, refresh=False: dict(SR.DEFAULT_MODES))
+    R.save_settings({"formats": ["옛 포맷"]})
+    err, t = _call(srv, "list_series")
+    d = json.loads(t)
+    assert not err and d["series"][0]["name"] == "옛 포맷" and "hidden" in d["modes"]
+    err, t = _call(srv, "save_series", series=[{"name": "해외 성공 사례", "mode": "hidden", "channels": ["https://www.youtube.com/@x"],
+                                                "keywords": ["youtube success story"]}, {"name": "급상승 영상"}, {"name": "이상한 방식", "mode": "zzz"}])
+    assert not err
+    s = R.load_settings()
+    assert s["formats"] == ["해외 성공 사례", "이상한 방식"] and s["series"][1]["mode"] == "weekly"
+    assert _call(srv, "save_series", series=[])[0]

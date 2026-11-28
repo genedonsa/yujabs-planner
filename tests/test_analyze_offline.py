@@ -44,6 +44,8 @@ def run(tmp_path, monkeypatch):
     monkeypatch.setattr(E, "HOME", tmp_path)
     monkeypatch.setattr(E, "_today", lambda: TODAY)
     monkeypatch.setattr(access, "check_saved", lambda s: True)
+    from planner import series as SR
+    monkeypatch.setattr(SR, "modes", lambda home=None, refresh=False: dict(SR.DEFAULT_MODES))
 
     def channel_videos(url, limit=60, original_titles=True):
         key = "me" if url.endswith("@me") else "role2" if url.endswith("@role2") else "role" if url.endswith("@role") else url.rsplit("/", 1)[-1]
@@ -72,3 +74,41 @@ def test_analyze_end_to_end(run):
     assert "UCkor" not in ids and not any(x["id"].startswith("UCkorHOT") for x in r["refs"])  # '유튜버' 하나만 걸린 다른 분야
     assert "UCmid" in ids  # 롤모델을 늘리면(큰 롤모델) 그 규모까지 찾는다
     assert any(" " in k for k in r["auto_keywords"]) and not {"조회수", "구독자", "채널"} & set(r["auto_keywords"])
+
+
+def test_series_modes_and_channels(tmp_path, monkeypatch):
+    """회원 시리즈: 시리즈 채널은 그 시리즈의 찾기 방식(숨은 사례 발굴=30일·2배)으로 고른다."""
+    from planner import series as SR
+    monkeypatch.setattr(E, "HOME", tmp_path)
+    monkeypatch.setattr(E, "_today", lambda: TODAY)
+    monkeypatch.setattr(access, "check_saved", lambda s: True)
+    monkeypatch.setattr(SR, "modes", lambda home=None, refresh=False: dict(SR.DEFAULT_MODES))
+    vids = _vids("UCcase", "사례채널", ["How I grew my YouTube channel"] * 8, 4000)
+    vids.insert(0, Video("UCcaseOLD20", "He Got 6 Million Subscribers", "UCcase", "사례채널", 10000, TODAY - timedelta(days=20), 900))
+    chans = dict(CH, **{"UCcase": ({"id": "UCcase", "name": "사례채널", "subs": 50_000}, vids)})
+
+    def channel_videos(url, limit=60, original_titles=True):
+        key = "me" if url.endswith("@me") else "role" if url.endswith("@role") else "UCcase" if url.endswith("@case") else url.rsplit("/", 1)[-1]
+        ch, v = chans[key]
+        return dict(ch), list(v)
+    monkeypatch.setattr(collect, "channel_videos", channel_videos)
+    monkeypatch.setattr(collect, "search", lambda q, n=20, days=30: [])
+    monkeypatch.setattr(collect, "video_transcript", lambda url: {"transcript": []})
+    base = {"my_channel": "https://www.youtube.com/@me", "role_models": ["https://www.youtube.com/@role"], "formats": ["옛 포맷"]}
+    s = dict(base, series=[{"name": "해외 성공 사례", "desc": "해외 유튜브 성공 사례 소개", "mode": "hidden",
+                            "channels": ["https://www.youtube.com/@case"]}])
+    r = E.analyze(s, log=lambda m: None)
+    got = [x for x in r["refs"] if x["id"] == "UCcaseOLD20"]
+    assert got and got[0]["format"] == "해외 성공 사례" and got[0]["source"] == "시리즈 채널"
+    assert r["series"][0]["mode_label"].startswith("숨은 사례 발굴")
+    s2 = dict(base, series=[dict(s["series"][0], mode="weekly")])  # 같은 영상도 '이번 주 급상승'이면 20일 전이라 빠짐
+    assert not [x for x in E.analyze(s2, log=lambda m: None)["refs"] if x["id"] == "UCcaseOLD20"]
+    assert [x["name"] for x in SR.load(base)] == ["옛 포맷"]  # 예전 포맷은 시리즈로 옮겨짐
+
+
+def test_parse_modes_guards():
+    from planner import series as SR
+    m = SR.parse_modes("key,name,days,ratio,min_views,desc\nhidden,숨은 사례,999,1,0,x\nweekly,급상승,7,3배,\"10,000\",\n,빈줄,1,1,1,\n")
+    assert m["hidden"]["days"] == 180 and m["hidden"]["ratio"] == 1.5  # 배수 조건은 최소 1.5배로 지킴
+    assert m["weekly"]["min_views"] == 10000 and "" not in m
+    assert SR.parse_modes("id,title\nabc,영상\n") == {}  # 다른 탭이 오면 무시
