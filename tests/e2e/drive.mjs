@@ -19,9 +19,9 @@ for (let i = 0; i < 30; i++) { try { await p.goto('http://127.0.0.1:8765/index.h
 await step('setup', async () => {
   const PER = process.env.PERSONA || 'cook'; const KO = PER === 'cook';
   const P = KO ? { me: 'https://www.youtube.com/@Tooktak', models: ['https://www.youtube.com/@momstaste', 'https://www.youtube.com/@Yangjanggeumjubu', 'https://www.youtube.com/@심방골주부', 'https://www.youtube.com/@오늘식탁'],
-      intro: '직장 다니며 퇴근 후 20분 안에 만드는 집밥을 3년째 기록하고 있다. 자취생·맞벌이 부부를 위한 간단 반찬 레시피를 올린다.', aud: '바쁜 30~40대 맞벌이 / 반찬 레시피 전자책', fmts: ['집밥 레시피', '반찬 만들기'] }
+      intro: '직장 다니며 퇴근 후 20분 안에 만드는 집밥을 3년째 기록하고 있다. 자취생·맞벌이 부부를 위한 간단 반찬 레시피를 올린다.', aud: '바쁜 30~40대 맞벌이 / 반찬 레시피 전자책', fmts: [{ name: '집밥 레시피' }, { name: '반찬 만들기' }] }
     : { me: 'https://www.youtube.com/@유튜브-잡스', models: ['https://www.youtube.com/@ThinkMediaPodcast', 'https://www.youtube.com/@vidIQ', 'https://www.youtube.com/@ColinandSamir', 'https://www.youtube.com/@DanHenry'],
-      intro: '회사 다니며 유튜브를 시작해 6개월 동안 수익 0원이었다. 사장님·창업가 인터뷰 채널을 30만 규모로 운영했다. 지금은 유튜브 운영 대행·컨설팅을 하고 유료 커뮤니티에서 강의를 판다.', aud: '유튜브로 지식 상품을 팔고 싶은 30~50대 / 유튜브 운영 강의', fmts: ['해외 유튜브 성공 사례 가져오기', '유튜브 수익화'] };
+      intro: '회사 다니며 유튜브를 시작해 6개월 동안 수익 0원이었다. 사장님·창업가 인터뷰 채널을 30만 규모로 운영했다. 지금은 유튜브 운영 대행·컨설팅을 하고 유료 커뮤니티에서 강의를 판다.', aud: '유튜브로 지식 상품을 팔고 싶은 30~50대 / 유튜브 운영 강의', fmts: [{ name: '해외 유튜브 성공 사례', desc: '해외에서 화제가 된 유튜브 성공 사례를 한국 시청자에게 소개', mode: 'hidden', channels: 'https://www.youtube.com/@ThinkMediaPodcast', keywords: 'youtube success story, quit my job youtube' }, { name: '유튜브 수익화' }] };
   if (PER === 'self') { P.models = [P.me]; }  // 롤모델 칸에도 내 채널을 넣어 본다
   rep.persona = PER;
   await p.fill('#myCh', P.me);
@@ -29,7 +29,15 @@ await step('setup', async () => {
   for (let i = 0; i < models.length; i++) { let ins = await p.$$('#models input'); if (!ins[i]) { await p.click('#addModel'); ins = await p.$$('#models input'); } await ins[i].fill(models[i]); }
   await p.fill('#intro', P.intro);
   await p.fill('#aud', P.aud);
-  for (const f of P.fmts) { await p.fill('#fmtEdit .tgin', f); await p.press('#fmtEdit .tgin', 'Enter'); }
+  for (const [i, f] of P.fmts.entries()) {  // 내 시리즈 카드 채우기
+    if (i > 0) await p.click('#addSer');
+    const c = `#serList .sercard:nth-child(${i + 1})`;
+    await p.fill(`${c} [data-k=name]`, f.name);
+    if (f.desc) await p.fill(`${c} [data-k=desc]`, f.desc);
+    if (f.mode) await p.click(`${c} [data-mode=${f.mode}]`);
+    if (f.channels) await p.fill(`#serList .sercard:nth-child(${i + 1}) [data-k=channels]`, f.channels);
+    if (f.keywords) await p.fill(`#serList .sercard:nth-child(${i + 1}) [data-k=keywords]`, f.keywords);
+  }
   await shot('02_setup_filled');
   await p.click('#runBtn'); await p.waitForTimeout(4000); await shot('03_progress');
 });
