@@ -44,6 +44,9 @@ def _o(props: dict, req: list[str] | None = None) -> dict:
 
 
 S = {"type": "string"}
+NO_REFS = ("분석은 끝났지만 최근 7일 안에 기준(조회 1만·평소의 3배)을 넘은 영상이 아직 없어요. "
+           "list_weekly_videos의 급상승 영상(W1…)으로 기획하거나, 며칠 뒤 다시 분석하거나, 롤모델 채널을 더 넣어 보세요.")
+
 TOOLS = [
     {"name": "cornbot_status", "description": "콘봇 상태: 버전, 이번 달 암호 확인 여부, 내 채널·롤모델 설정, 마지막 분석 날짜, 레퍼런스·주간 게시글·기획안 개수.",
      "inputSchema": _o({})},
@@ -245,15 +248,19 @@ class Server:
         if j["error"]:
             return {"running": False, "error": j["error"]}
         if j["done_at"]:
-            return {"running": False, "finished_at": j["done_at"], "references": len(self._last().get("refs") or []),
-                    "next": "list_references로 목록을 보여 주세요."}
+            n = len(self._last().get("refs") or [])
+            return {"running": False, "finished_at": j["done_at"], "references": n,
+                    "next": "list_references로 목록을 보여 주세요." if n else NO_REFS}
         return {"running": False, "note": "이번 대화에서 시작한 분석이 없어요.", "last_analysis": self._last().get("date")}
 
     def t_list_references(self, a):
         last = self._last()
         refs = last.get("refs") or []
-        if not refs:
+        if not last.get("date"):
             raise Need("아직 분석 결과가 없어요. start_analysis로 시작하세요.")
+        if not refs:
+            return {"analysis_date": last.get("date"), "references": [], "total": 0,
+                    "note": NO_REFS}
         out = [self._short(r, f"R{i}") for i, r in enumerate(refs, 1)
                if not a.get("format") or a["format"] in (r.get("format") or "")]
         return {"analysis_date": last.get("date"), "criteria": last.get("criteria"),
