@@ -1,0 +1,221 @@
+{
+ "steps": [
+  {
+   "t": 3,
+   "tool": "cornbot_status",
+   "args": {},
+   "error": false,
+   "out": "{\n \"version\": \"0.2.0\",\n \"password_ok\": true,\n \"password_problem\": null,\n \"my_channel\": \"(아직 없음 — update_profile로 넣기)\",\n \"role_models\": [],\n \"audience\": \"\",\n \"last_analysis\": null,\n \"references\": 0,\n \"weekly_post_date\": \"2026-11-27\",\n \"weekly_videos\": 16,\n \"saved_plans\": 0,\n \"data_folder\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/유잡스 기획\",\n \"analysis_running\": false,\n \"video_running\": false\n}"
+  },
+  {
+   "t": 3,
+   "tool": "update_profile",
+   "args": {
+    "my_channel": "https://www.youtube.com/@유튜브-잡스",
+    "role_models": "['https://www.youtube.com/@유튜브-잡스']",
+    "audience": "유튜브로 지식 상품을 팔고 싶은 30~50대 / 유튜브 운영 강의"
+   },
+   "error": false,
+   "out": "{\n \"saved\": true,\n \"my_channel\": \"https://www.youtube.com/@유튜브-잡스\",\n \"role_models\": [\n  \"https://www.youtube.com/@유튜브-잡스\"\n ]\n}"
+  },
+  {
+   "t": 3,
+   "tool": "start_analysis",
+   "args": {},
+   "error": false,
+   "out": "분석을 시작했어요. 보통 3~10분 걸려요. 1분쯤 뒤 analysis_status로 확인하세요."
+  },
+  {
+   "t": 83,
+   "tool": "analysis_status",
+   "args": {},
+   "error": false,
+   "out": "{\n \"running\": false,\n \"finished_at\": \"11:09\",\n \"references\": 0,\n \"next\": \"분석은 끝났지만 최근 7일 안에 기준(조회 1만·평소의 3배)을 넘은 영상이 아직 없어요. list_weekly_videos의 급상승 영상(W1…)으로 기획하거나, 며칠 뒤 다시 분석하거나, 롤모델 채널을 더 넣어 보세요.\"\n}"
+  },
+  {
+   "t": 83,
+   "tool": "list_references",
+   "args": {
+    "limit": "10"
+   },
+   "error": false,
+   "out": "{\n \"analysis_date\": \"2026-11-28\",\n \"references\": [],\n \"total\": 0,\n \"note\": \"분석은 끝났지만 최근 7일 안에 기준(조회 1만·평소의 3배)을 넘은 영상이 아직 없어요. list_weekly_videos의 급상승 영상(W1…)으로 기획하거나, 며칠 뒤 다시 분석하거나, 롤모델 채널을 더 넣어 보세요.\"\n}"
+  },
+  {
+   "t": 83,
+   "tool": "list_benchmark_channels",
+   "args": {},
+   "error": false,
+   "out": "{\n \"analysis_date\": \"2026-11-28\",\n \"keywords\": [\n  \"퇴사\",\n  \"월급\"\n ],\n \"channels\": []\n}"
+  },
+  {
+   "t": 83,
+   "tool": "list_weekly_videos",
+   "args": {},
+   "error": false,
+   "out": "{\n \"post_date\": \"2026-11-27\",\n \"videos\": [\n  {\n   \"code\": \"W1\",\n   \"title\": \"비싼 돈 주고 여행 안 가도 이제 국내에서 드디어 구할 수 있다는 직수입 코스트코 추천템 10가지\",\n   \"channel\": \"살림연구소 오클\",\n   \"views\": 496000,\n   \"ratio_vs_usual\": 6.2,\n   \"url\": \"https://www.youtube.com/watch?v=z68nTiJduuk\",\n   \"format\": \"급상승 영상\",\n   \"post_analysis\": \"조회수 약 49.6만 · 채널 평균 약 8.0만 · 11/22 업로드 · 살림템 · 댓글 11개\\n추정 주요 시청자: 30~50대 여성\\n영상 요약: 코스트코에서 살 수 있는 해외 직수입 연말 추천템 10가지를 골라 소개해요. 에어프라이어부터 여행 기념품으로 유명한 디저트, 홋카이도 우유를 쓴 홍차 음료까지 다뤄요.\\n왜 터졌을까: 댓글은 11개로 적어서 반응만으로 이유를 단정하긴 어려워요. 같은 채널의 11월 다른 영상은 약 1.4만~40만 회인데 이번엔 49만 회를 넘었어요. '여행 안 가도 살 수 있다'는 제목의 약속이 눈에 띄어요.\\n시청자가 얻은 가치: 매장에 가기 전에 살 것을 미리 추려 보는 편리함과, 해외여행 온 듯한 구경거리예요.\\n댓글에 남은 궁금증: 가격도 함께 보여 달라는 댓글(좋아요 6)이 있었어요.\"\n  },\n  {\n   \"code\": \"W2\",\n   \"title\": \"와인킹의 코스트코 와인추천\",\n   \"channel\": \"wineking 와인킹\",\n   \"views\": 411000,\n   \"ratio_vs_usual\": 5.8,\n   \"url\": \"https://www.youtube.com/watch?v=-GePFb4cuWk\",\n   \"format\": \"급상승 영상\",\n   \"post_analysis\": \"조회수 약 41.1만 · 채널 평균 약 7.1만 · 11/20 업로드 · 와인 · 댓글 249개\\n추정 주요 시청자: 30~50대 남녀\\n영상 요약: 와인킹이 배우자와 코스트코 양평점 매대를 돌며 커클랜드 샴페인, 바롤로, 아이스와인 등을 골라 줘요. 다시 사고 싶은 와인과 피하고 싶은 와인을 함께 말해요. (과음은 건강에 해로워요.)\\n왜 터졌을까: 채널의 최근 다른 영상은 약 3.8만~6.6만 회였는데 이번엔 41만 회예요. 좋아요 128개 댓글은 '위스키만 마시다 와인에 입문했다'며 트레이더스 편도 부탁했어요.\\n시청자가 얻은 가치: 누구나 갈 수 있는 매장에서 실패하지 않고 고르는 기준, 그리고 두 사람의 대화를 보는 재미예요.\\n댓글에 남은 궁금증: 이마트 트레이더스 등 다른 마트 편을 원하는 요청이 여러 번 나와요.\"\n  },\n  {\n   \"code\": \"W3\",\n   \"title\": \"\\\"치매는 못 피한다? 완전히 틀렸습니다\\\" 매일 아침 계란과 이걸 드세요. 혈관성 치매 90% 막을 수 있습니다. (장민욱 신경과전문의 1부) #치매 #치매예방\",\n   \""
+  },
+  {
+   "t": 84,
+   "tool": "get_planning_material",
+   "args": {
+    "video": "W1",
+    "my_story": "나도 회사 다니며 유튜브를 시작해서 6개월 동안 수익이 0원이었다. 조회수보다 내 상품을 살 사람을 모으는 게 중요하다는 걸 늦게 알았다."
+   },
+   "error": false,
+   "out": "# 기획안 요청문 (콘봇)\n\n아래 '기획 자료'의 레퍼런스 영상 1편으로, 내 채널용 **기획안**과 **그대로 읽으면 되는 대본**을 만들어 주세요. 질문하지 말고 바로 써 주세요.\n\n## 꼭 지킬 것\n- **제목과 썸네일 문구는 레퍼런스 원본을 그대로 한국어로 옮긴다.** 새로 짓지 않는다. 썸네일 문구는 원본 썸네일 이미지(링크 제공)를 보고 확인한다. 원본에 없는 말풍선·문구는 넣지 않는다. 스타일(글씨 위치·색·배치)만 내 채널 조회수 상위 썸네일을 따른다.\n- **'이 영상에 대한 내 이야기'와 '내 경험 노트'가 이 영상의 가치다.** 원본만 옮기면 시청자는 원본을 보면 된다. 내 이야기는 빠짐없이 대본에 녹이고, 경험 노트에서 이 영상과 맞는 경험을 골라 넣는다. 둘 다 없는 경험·수치를 지어내지 않는다.\n- 원본 분석은 '원본 대사 → 한 줄 요약 → 왜 먹혔나 → 내 채널에서는' 순서의 **완전한 문장**으로 쓴다. 화살표(→)나 줄임말로 압축하지 않는다. 따로 된 '상세 분석' 목록은 만들지 않는다.\n- 원본 대사는 자막에서 찾아 [시간](https://youtu.be/영상ID?t=초) \"원문 한 줄(15단어 이내)\" — 한국어 번역으로 쓴다. 자막이 없으면 '자막 없음'이라고 쓴다. 대사를 지어내거나 시간을 짐작해 쓰지 않는다.\n- 출연자가 스스로 밝힌 수치는 '(본인 주장)'으로 표시한다. 원화로 바꿀 때는 업로드 시점 환율이라고 적는다.\n- 내 시청자가 가진 문제를 해결하거나 가치를 주는 각도로 쓴다. 판매 이야기는 마지막 행동 유도에서 한 번만.\n- 제목 후보는 만들지 않는다. 제목은 원본 제목 한국어판 하나.\n- **대본 길이는 원본 영상과 비슷하게**, 내용은 풍부하게. 길이를 채우려고 의미 없는 말, 같은 말 반복, 뻔한 일반론을 절대 넣지 않는다. 재료가 모자라면 그만큼 짧게 쓰고, 마지막에 \"이런 이야기를 더 주시면 풍부해져요\"라고 무엇이 필요한지 적는다.\n\n## 출력 형식 (이 순서 그대로)\n\n# (원본 제목 한국어판)\n\n## 원본 vs 내 영상\n| | 원본 영상 | 내 영상 (제안) |\n|---|---|---|\n| 썸네일 | 원본 썸네일 링크 | 윗줄 / 아랫줄(강조) — 원본 문구 한국어판 |\n| 제목 | 원본 제목 (원문) | 원본 제목 한국어판 |\n| 정보 | 채널 · 길이 · 조회수 · 업로드일 | 예상 길이 |\n\n## 요약\n| 항목 | 내용 |\n|---|---|\n| 포맷 | 이 영상의 포맷과 공식 한 줄 |\n| 핵심 메시지 | 한두 문장 |\n| 타깃 문제 | 내 시청자가 겪는 문제 1~2개 |\n| 원본 반응 | 조회수 · 평소 대비 배수 · 댓글 수 |\n| 내 이야기 | 내 이야기·경험 중 대본에 넣은 것 한 줄 |\n| 썸네일 문구 | \"윗줄 / 아랫줄\" |\n\n## 원본 → 내 기획안 매칭\n아래 9개 항목을 모두 쓴다. 원본에 없으면 '원본에 없음'과 이유를 한 줄로 쓴다.\n썸네일 · 제목 · 인트로(첫 1분) · 본문 흐름 · 숫자 쓰는 법 · 신뢰를 주는 방식 · 댓글 반응 · 불만 ·"
+  },
+  {
+   "t": 84,
+   "tool": "save_plan",
+   "args": {
+    "video": "W1",
+    "plan_markdown": "# 점검용 기획안\n\n## 대본\n### 훅 · 0:00\n저도 처음 6개월은 수익이 0원이었어요.\n"
+   },
+   "error": false,
+   "out": "{\n \"saved\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/유잡스 기획/기획/2026-11-28_z68nTiJduuk/기획안.md\",\n \"note\": \"콘봇 창의 '내 기획안'에서도 볼 수 있어요.\"\n}"
+  },
+  {
+   "t": 84,
+   "tool": "list_plans",
+   "args": {
+    "read": "1"
+   },
+   "error": false,
+   "out": "{\n \"plans\": [\n  {\n   \"no\": 1,\n   \"date\": \"2026-11-28\",\n   \"reference\": \"비싼 돈 주고 여행 안 가도 이제 국내에서 드디어 구할 수 있다는 직수입 코스트코 추천템 10가지\",\n   \"has_plan\": true,\n   \"folder\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/유잡스 기획/기획/2026-11-28_z68nTiJduuk\"\n  }\n ],\n \"plan\": \"# 점검용 기획안\\n\\n## 대본\\n### 훅 · 0:00\\n저도 처음 6개월은 수익이 0원이었어요.\\n\"\n}"
+  },
+  {
+   "t": 85,
+   "tool": "find_folders",
+   "args": {
+    "name": "콘봇점검"
+   },
+   "error": false,
+   "out": "{\n \"found\": [\n  {\n   \"folder\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영\",\n   \"videos\": 1,\n   \"made\": false\n  }\n ]\n}"
+  },
+  {
+   "t": 85,
+   "tool": "make_video",
+   "args": {
+    "folder": "바탕화면/콘봇점검촬영"
+   },
+   "error": false,
+   "out": "'/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영' 편집을 시작했어요. 촬영 길이에 따라 수 분~수십 분 걸려요(처음 한 번은 받아쓰기 모델도 받아요). 30초~1분 간격으로 video_status로 확인하세요."
+  },
+  {
+   "t": 115,
+   "tool": "video_status",
+   "args": {},
+   "error": false,
+   "out": "{\n \"running\": false,\n \"done\": true,\n \"final\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성/최종.mp4\",\n \"srt\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성/자막.srt\",\n \"folder\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성\",\n \"after\": 13.5,\n \"cuts\": 4,\n \"lines\": 10,\n \"before\": 25.6,\n \"next\": \"get_video_lines로 자막을 읽고 오타·강조·챕터를 edit_video로 반영하세요.\"\n}"
+  },
+  {
+   "t": 115,
+   "tool": "get_video_lines",
+   "args": {
+    "folder": "바탕화면/콘봇점검촬영"
+   },
+   "error": false,
+   "out": "{\n \"folder\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성\",\n \"final\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성/최종.mp4\",\n \"minutes_before\": 0.4,\n \"minutes_after\": 0.2,\n \"lines\": [\n  {\n   \"no\": 1,\n   \"time\": \"0:00\",\n   \"text\": \"안녕하세여 콤보 영상 편집 점검\"\n  },\n  {\n   \"no\": 2,\n   \"time\": \"0:02\",\n   \"text\": \"영상입니다\"\n  },\n  {\n   \"no\": 3,\n   \"time\": \"0:08\",\n   \"text\": \"오늘은 유튜브 수익화 3가지 방법을\"\n  },\n  {\n   \"no\": 4,\n   \"time\": \"0:10\",\n   \"text\": \"알려드릴게요\"\n  },\n  {\n   \"no\": 5,\n   \"time\": \"0:14\",\n   \"text\": \"첫번째는 꾸준함입니다\"\n  },\n  {\n   \"no\": 6,\n   \"time\": \"0:15\",\n   \"text\": \"일주일에 한 편씩 1년 동안 올리면\"\n  },\n  {\n   \"no\": 7,\n   \"time\": \"0:17\",\n   \"text\": \"52편이 쌓여요\"\n  },\n  {\n   \"no\": 8,\n   \"time\": \"0:20\",\n   \"text\": \"두번째는 내 상품과 연결된 주제를\"\n  },\n  {\n   \"no\": 9,\n   \"time\": \"0:23\",\n   \"text\": \"고르는 겁니다\"\n  },\n  {\n   \"no\": 10,\n   \"time\": \"0:23\",\n   \"text\": \"감사합니다\"\n  }\n ],\n \"note\": \"time은 원본 촬영 기준 시간이에요. 설명란 챕터 시간은 edit_video 결과의 chapters_at을 쓰세요.\"\n}"
+  },
+  {
+   "t": 115,
+   "tool": "edit_video",
+   "args": {
+    "folder": "바탕화면/콘봇점검촬영",
+    "fix": "{'1': '안녕하세여 콘봇 영상 편집 점검'}",
+    "emphasis": "{'3': '수익화 3가지'}",
+    "chapters": "{'1': '인사', '5': '꾸준함', '8': '주제 고르기'}",
+    "drop": "[10]"
+   },
+   "error": false,
+   "out": "고친 내용으로 다시 만들기 시작했어요(받아쓰기는 다시 안 해서 몇 분이면 돼요). video_status로 확인하세요."
+  },
+  {
+   "t": 130,
+   "tool": "video_status",
+   "args": {},
+   "error": false,
+   "out": "{\n \"running\": false,\n \"done\": true,\n \"final\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성/최종.mp4\",\n \"srt\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성/자막.srt\",\n \"folder\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성\",\n \"after\": 13.0,\n \"cuts\": 4,\n \"lines\": 9,\n \"before\": 25.6,\n \"missing\": [],\n \"chapters_at\": [\n  {\n   \"time\": \"00:00\",\n   \"chapter\": \"인사\"\n  },\n  {\n   \"time\": \"00:05\",\n   \"chapter\": \"꾸준함\"\n  },\n  {\n   \"time\": \"00:10\",\n   \"chapter\": \"주제 고르기\"\n  }\n ],\n \"next\": \"get_video_lines로 자막을 읽고 오타·강조·챕터를 edit_video로 반영하세요.\"\n}"
+  },
+  {
+   "t": 130,
+   "tool": "get_video_lines",
+   "args": {
+    "folder": "바탕화면/콘봇점검촬영"
+   },
+   "error": false,
+   "out": "{\n \"folder\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성\",\n \"final\": \"/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성/최종.mp4\",\n \"minutes_before\": 0.4,\n \"minutes_after\": 0.2,\n \"lines\": [\n  {\n   \"no\": 1,\n   \"time\": \"0:00\",\n   \"text\": \"안녕하세여 콘봇 영상 편집 점검\",\n   \"chapter\": \"인사\"\n  },\n  {\n   \"no\": 2,\n   \"time\": \"0:02\",\n   \"text\": \"영상입니다\"\n  },\n  {\n   \"no\": 3,\n   \"time\": \"0:08\",\n   \"text\": \"오늘은 유튜브 수익화 3가지 방법을\",\n   \"emphasis\": \"수익화 3가지\"\n  },\n  {\n   \"no\": 4,\n   \"time\": \"0:10\",\n   \"text\": \"알려드릴게요\"\n  },\n  {\n   \"no\": 5,\n   \"time\": \"0:14\",\n   \"text\": \"첫번째는 꾸준함입니다\",\n   \"chapter\": \"꾸준함\"\n  },\n  {\n   \"no\": 6,\n   \"time\": \"0:15\",\n   \"text\": \"일주일에 한 편씩 1년 동안 올리면\"\n  },\n  {\n   \"no\": 7,\n   \"time\": \"0:17\",\n   \"text\": \"52편이 쌓여요\"\n  },\n  {\n   \"no\": 8,\n   \"time\": \"0:20\",\n   \"text\": \"두번째는 내 상품과 연결된 주제를\",\n   \"chapter\": \"주제 고르기\"\n  },\n  {\n   \"no\": 9,\n   \"time\": \"0:23\",\n   \"text\": \"고르는 겁니다\"\n  }\n ],\n \"note\": \"time은 원본 촬영 기준 시간이에요. 설명란 챕터 시간은 edit_video 결과의 chapters_at을 쓰세요.\"\n}"
+  }
+ ],
+ "errors": [],
+ "stdio_probe": "ok 0.2.0 tools=18",
+ "analysis": {
+  "running": false,
+  "finished_at": "11:09",
+  "references": 0,
+  "next": "분석은 끝났지만 최근 7일 안에 기준(조회 1만·평소의 3배)을 넘은 영상이 아직 없어요. list_weekly_videos의 급상승 영상(W1…)으로 기획하거나, 며칠 뒤 다시 분석하거나, 롤모델 채널을 더 넣어 보세요."
+ },
+ "keywords": [
+  "퇴사",
+  "월급"
+ ],
+ "weekly_count": 16,
+ "material": {
+  "chars": 4076,
+  "지시문": true,
+  "게시글분석": true,
+  "내이야기": true,
+  "자막": true,
+  "댓글": true
+ },
+ "plan_saved": true,
+ "video": {
+  "running": false,
+  "done": true,
+  "final": "/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성/최종.mp4",
+  "srt": "/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성/자막.srt",
+  "folder": "/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성",
+  "after": 13.5,
+  "cuts": 4,
+  "lines": 10,
+  "before": 25.6,
+  "next": "get_video_lines로 자막을 읽고 오타·강조·챕터를 edit_video로 반영하세요."
+ },
+ "edited": {
+  "running": false,
+  "done": true,
+  "final": "/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성/최종.mp4",
+  "srt": "/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성/자막.srt",
+  "folder": "/Users/runner/work/yujabs-planner/yujabs-planner/mcp_home/Desktop/콘봇점검촬영/콘봇_완성",
+  "after": 13.0,
+  "cuts": 4,
+  "lines": 9,
+  "before": 25.6,
+  "missing": [],
+  "chapters_at": [
+   {
+    "time": "00:00",
+    "chapter": "인사"
+   },
+   {
+    "time": "00:05",
+    "chapter": "꾸준함"
+   },
+   {
+    "time": "00:10",
+    "chapter": "주제 고르기"
+   }
+  ],
+  "next": "get_video_lines로 자막을 읽고 오타·강조·챕터를 edit_video로 반영하세요."
+ },
+ "checks": {
+  "편집 줄 수 줄어듦": true,
+  "강조 저장": true,
+  "챕터 저장": true,
+  "챕터 시간": true,
+  "완성본": true
+ },
+ "seconds": 131,
+ "ok": true
+}
