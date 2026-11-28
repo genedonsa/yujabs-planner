@@ -175,3 +175,10 @@ def test_feed_offline_uses_cache(tmp_path, monkeypatch):
 def test_criteria_fixed(tmp_path, monkeypatch):
     import inspect
     assert "dict(DEFAULT_CRITERIA)" in inspect.getsource(E.analyze)
+
+
+def test_keywords_no_duplicates():
+    import unicodedata
+    nfd = unicodedata.normalize("NFD", "회사")
+    out = E.merge_keywords(["회사", "구독자"], {"kw_added": [nfd, "회사", " 수익화 "], "kw_removed": []})
+    assert out == ["회사", "구독자", "수익화"]
