@@ -271,8 +271,8 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
         terms = [t.lower() for t in ([anchor] if anchor else []) + kws + formats if t]
         if yt_field:  # 유튜브 교육 분야는 제목에 유튜브 이야기가 있어야 같은 분야 ('회사'·'시대' 같은 말로는 부족)
             terms = sorted(YOUTUBE_FIELD_WORDS | {"유튜브", "youtube"} | {f.lower() for f in formats})
-        hits = sum(1 for v in vids if any(t in v.title.lower() for t in terms))
-        on_topic = hits >= 2 and (not yt_field or hits >= 0.25 * len(vids))  # 여행 브이로그가 '구독자 1만 기념' 몇 편으로 끼지 않게
+        n_hit = sum(1 for v in vids if any(t in v.title.lower() for t in terms))
+        on_topic = n_hit >= 2 and (not yt_field or n_hit >= 0.25 * len(vids))  # 여행 브이로그가 '구독자 1만 기념' 몇 편으로 끼지 않게
         # 너무 작은 채널(구독자 1천 미만이거나 평소 조회수 1천 미만)은 참고가 어려워 뺀다
         big_enough = (ch.get("subs") or 0) >= 1000 and (ch["avg"] or 0) >= 1000
         manual = cid in subs and not (subs.get(cid) or {}).get("auto")  # 회원이 직접 넣은 채널은 늘 포함
