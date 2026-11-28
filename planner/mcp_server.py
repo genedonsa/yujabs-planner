@@ -16,6 +16,8 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
+from . import series as SR
+
 PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"]
 
 INSTRUCTIONS = """콘봇은 유잡스 커뮤니티 회원의 컴퓨터에 깔린 유튜브 기획·편집 도우미예요. 회원은 왕초보이니 쉬운 말로, 짧게 안내하세요.
@@ -23,7 +25,9 @@ INSTRUCTIONS = """콘봇은 유잡스 커뮤니티 회원의 컴퓨터에 깔린
 기획 흐름
 1. 처음이거나 잘 모르겠으면 cornbot_status로 상태를 보세요. 암호가 안 맞으면 open_cornbot_window로 콘봇 창을 열고 '이번 달 암호를 콘봇 창에 넣어 주세요'라고 안내하세요. 암호를 대화창에 받지 마세요.
 2. 학원월드 '주간 급상승 영상'(대표가 매주 고른 영상, 모든 회원 공통)으로 기획할 때: list_weekly_videos로 목록(W1, W2…)과 대표의 분석을 보여 주고 고르게 하세요. 회원이 게시글을 복사할 필요는 없어요.
-3. 내 분야에서 최근 터진 영상을 찾을 때: list_references. 결과가 없거나 오래됐으면 start_analysis → analysis_status(몇 분 걸려요).
+3. 내 시리즈 레퍼런스를 찾을 때: list_references(format=시리즈 이름). 결과가 없거나 오래됐으면 start_analysis → analysis_status(몇 분 걸려요).
+   목록을 보여 줄 때는 list_series의 시리즈 설명에 맞는 소재인지 먼저 판단해서, 맞는 것만 추려 이유 한 줄과 함께 보여 주세요(안 맞는 건 몇 개 뺐다고만).
+   회원이 새 시리즈를 만들거나 바꾸고 싶어 하면: 이름·한 줄 설명을 묻고, 찾기 방식(list_series의 modes)을 추천해 고르게 한 뒤, 소재 채널·검색어(해외 소재면 영어)를 제안해 save_series로 저장하세요.
 4. 영상을 고르면 회원에게 그 영상 주제에 대한 '내 이야기(경험·숫자·실패담)'를 한두 줄 물어보세요. 그다음 get_planning_material(video, my_story)를 부르고, 돌려받은 자료 맨 앞의 '기획안 작성 지시문'을 그대로 따라 기획안과 대본을 쓰세요. 주간 게시글 분석이 들어 있으면 그 분석을 기획의 출발점으로 삼으세요.
 5. 다 쓰면 반드시 save_plan으로 저장하세요(콘봇 '내 기획안'에 보여요). 대화에는 기획안 요약과 훅 대본 정도만 보여 주세요.
 
@@ -53,11 +57,19 @@ TOOLS = [
     {"name": "open_cornbot_window", "description": "회원 화면에 콘봇 창을 연다. 암호 입력이나 화면 확인이 필요할 때.", "inputSchema": _o({})},
     {"name": "update_profile", "description": "내 채널·롤모델 채널·내 시청자와 상품 설정을 바꾼다. 주소는 https://www.youtube.com/@… 형식.",
      "inputSchema": _o({"my_channel": S, "role_models": {"type": "array", "items": S}, "audience": S})},
+    {"name": "list_series", "description": "회원의 시리즈(이름·한 줄 설명·찾기 방식·소재 채널·검색어)와 고를 수 있는 찾기 방식 목록.",
+     "inputSchema": _o({})},
+    {"name": "save_series", "description": "회원의 시리즈 목록을 통째로 저장한다(최대 6개). 바꾸기 전에 list_series로 지금 목록을 읽고, 바꾼 목록 전체를 보낸다. 다음 분석부터 적용.",
+     "inputSchema": _o({"series": {"type": "array", "items": _o({
+         "name": S, "desc": {"type": "string", "description": "한 줄 설명"},
+         "mode": {"type": "string", "description": "찾기 방식 키(list_series의 modes에서). 예: weekly, hidden, big"},
+         "channels": {"type": "array", "items": S, "description": "이 시리즈 소재가 자주 나오는 유튜브 채널 주소"},
+         "keywords": {"type": "array", "items": S, "description": "검색어. 해외 소재면 영어"}}, ["name"])}}, ["series"])},
     {"name": "start_analysis", "description": "내 채널·롤모델 기준으로 같은 분야에서 최근 터진 영상(레퍼런스)과 벤치마킹 채널을 새로 찾기 시작한다. 몇 분 걸린다.",
      "inputSchema": _o({})},
     {"name": "analysis_status", "description": "start_analysis 진행 상황. 끝나면 레퍼런스 개수를 알려 준다.", "inputSchema": _o({})},
     {"name": "list_references", "description": "마지막 분석의 레퍼런스 영상 목록(R1, R2…). 평소 대비 배수가 높은 순.",
-     "inputSchema": _o({"format": {"type": "string", "description": "포맷 이름으로 거르기(선택)"}, "limit": {"type": "integer"}})},
+     "inputSchema": _o({"format": {"type": "string", "description": "시리즈 이름으로 거르기(선택)"}, "limit": {"type": "integer"}})},
     {"name": "list_benchmark_channels", "description": "분석에서 찾은 벤치마킹 채널과 검색 키워드.", "inputSchema": _o({})},
     {"name": "change_keywords", "description": "레퍼런스 검색 키워드를 더하거나 뺀다. 다음 분석부터 적용.",
      "inputSchema": _o({"add": {"type": "array", "items": S}, "remove": {"type": "array", "items": S}})},
@@ -187,10 +199,29 @@ class Server:
         return {"version": VERSION, "password_ok": ok, "password_problem": err or None,
                 "my_channel": s.get("my_channel") or "(아직 없음 — update_profile로 넣기)",
                 "role_models": s.get("role_models") or [], "audience": s.get("audience") or "",
+                "series": [x["name"] for x in SR.load(s)],
                 "last_analysis": last.get("date"), "references": len(last.get("refs") or []),
                 "weekly_post_date": self._weekly().get("date"), "weekly_videos": len(self._weekly().get("items") or []),
                 "saved_plans": plans, "data_folder": str(HOME),
                 "analysis_running": self.job["running"], "video_running": self.vjob["running"]}
+
+    def t_list_series(self, a):
+        m = SR.modes()
+        ser = SR.load(self._settings())
+        for x in ser:
+            x["mode_label"] = SR.mode_label(m.get(x["mode"]) or m[SR.DEFAULT_MODE])
+        return {"series": ser, "modes": {k: {"name": v["name"], "rule": SR.mode_label(v), "good_for": v.get("desc", "")} for k, v in m.items()},
+                "note": "시리즈는 회원마다 달라요. 모든 회원 공통인 학원월드 '급상승 영상'(list_weekly_videos)은 시리즈가 아니에요."}
+
+    def t_save_series(self, a):
+        from . import run as R
+        ser = SR.normalize(a.get("series") or [], set(SR.modes()))
+        if not ser:
+            raise Need("시리즈 이름이 하나 이상 있어야 해요. ('급상승 영상'은 공통 목록 이름이라 쓸 수 없어요)")
+        s = R.load_settings()
+        s["series"], s["formats"] = ser, [x["name"] for x in ser]
+        R.save_settings(s)
+        return {"saved": [x["name"] for x in ser], "next": "start_analysis로 다시 찾으면 시리즈마다 따로 레퍼런스가 나와요."}
 
     def t_open_cornbot_window(self, a):
         """콘봇 창을 띄우고, 창이 정말 떴는지 확인한 뒤에만 '열었다'고 답한다."""

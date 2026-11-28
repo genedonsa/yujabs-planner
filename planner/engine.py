@@ -2,7 +2,7 @@
 
 1. 내 경험 익히기: 내 채널 영상 대본 + 내가 쓴 소개 + 정보 링크 → '내가 나에 대해 말한 문장'만 모아 둔다.
 2. 키워드: 롤모델·내 영상 제목에서 자동으로 뽑고, 회원이 뺀 것은 다시 넣지 않고 더한 것은 유지한다.
-3. 벤치마킹 채널: 키워드·내 포맷으로 검색해 롤모델보다 작은 같은 분야 채널을 찾는다.
+3. 벤치마킹 채널: 키워드·내 시리즈으로 검색해 롤모델보다 작은 같은 분야 채널을 찾는다.
 4. 레퍼런스: 롤모델 + 구독 리스트 + 검색에서 본 채널의 영상 중
    최근 N일(기본 7) · 조회수 M 이상(기본 1만) · 그 채널 평소(최근 3개월 롱폼 평균, 최근 N일 제외)의 K배 이상(기본 3).
    구독자 수는 보지 않는다. 지난번에 보여 준 영상은 뺀다.
@@ -156,13 +156,13 @@ def hits(ch: dict, vids: list[Video], base: float, today: date, c: dict) -> list
     return out
 
 
-def _tag_format(ref: dict, formats: list[str], found_by: dict) -> str:
+def _tag_format(ref: dict, formats: list[str], found_by: dict, words_of: dict | None = None) -> str:
     if ref["id"] in found_by:
         return found_by[ref["id"]]
     title = ref["title"].lower()
     best, score = "", 0
     for f in formats:
-        words = [w for w in re.findall(r"[가-힣A-Za-z]{2,}", f.lower())]
+        words = [w for w in re.findall(r"[가-힣A-Za-z]{2,}", (words_of or {}).get(f, f).lower())]
         sc = sum(1 for w in words if w in title)
         if sc > score:
             best, score = f, sc
@@ -179,8 +179,18 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     if not access.check_saved(s):
         raise PermissionError("이번 달 암호가 바뀌었어요. 커뮤니티 회원 게시판에서 새 암호를 확인해 주세요.")
     today = _today()
-    c = dict(DEFAULT_CRITERIA)  # 유잡스 기준은 고정 (회원이 바꿀 수 없음)
-    formats = [f for f in s.get("formats", []) if f.strip()]
+    c = dict(DEFAULT_CRITERIA)  # 시리즈가 정해지지 않은 영상에 쓰는 유잡스 기본 기준 (회원이 바꿀 수 없음)
+    from . import series as SR
+    ser = SR.load(s)  # 회원 시리즈 (예전 '포맷'은 이름만 있는 시리즈로)
+    mds = SR.modes(HOME)  # 찾기 방식은 대표 시트에서 (업데이트 없이 바뀜)
+    for x in ser:
+        x["mode"] = x["mode"] if x["mode"] in mds else SR.DEFAULT_MODE
+        x["mode_label"] = SR.mode_label(mds[x["mode"]])
+    formats = [x["name"] for x in ser]
+    crit_of = {x["name"]: SR.criteria(mds[x["mode"]]) for x in ser}
+    loose = {"days": max([c["days"]] + [v["days"] for v in crit_of.values()]),
+             "min_views": min([c["min_views"]] + [v["min_views"] for v in crit_of.values()]),
+             "ratio": min([c["ratio"]] + [v["ratio"] for v in crit_of.values()]), "region": "all"}
 
     step("me"); log("내 채널과 내 경험을 읽는 중…")
     me = learn_me(s, log)
@@ -233,7 +243,9 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     found_vids: set[str] = set()
     def q(k: str) -> str:  # '비즈니스' 대신 '유튜브 비즈니스'처럼 분야 말을 붙여 검색
         return f"{anchor} {k}" if anchor and anchor not in k.lower() and not k.startswith(anchor[:2]) else k
-    search_terms = [(q(k), k, None) for k in kws] + [(f, f, f) for f in formats]
+    search_terms = [(q(k), k, None) for k in kws]
+    for x in ser:  # 시리즈 이름·검색어로도 찾고, 찾은 영상은 그 시리즈로 묶는다
+        search_terms += [(k, x["name"], x["name"]) for k in [x["name"]] + x["keywords"]]
     for term, label, fmt in search_terms:
         log(f"검색 중: {term}")
         try:
@@ -249,6 +261,21 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
             found_kw.setdefault(v.channel_id, set()).add(label)
             if fmt:
                 found_by_format[v.id] = fmt
+
+    # 시리즈마다 회원이 넣은 '소재 채널' — 그 시리즈의 찾기 방식으로 영상을 고른다
+    series_ch: dict[str, str] = {}
+    for x in ser:
+        for url in x["channels"]:
+            log(f"시리즈 '{x['name']}' 채널 읽는 중: {url}")
+            try:
+                ch, vids = collect.channel_videos(url, 60)
+            except Exception as e:  # noqa: BLE001
+                log("  건너뜀 (" + _friendly(e) + ")")
+                continue
+            ch["avg"] = int(baseline(vids, today, 7))
+            ch["video_count"] = len(vids)
+            channel_vids.setdefault(ch["id"], (ch, vids))
+            series_ch.setdefault(ch["id"], x["name"])
 
     subs = s.get("subs")  # 회원이 고른 구독 리스트 (채널 id → 정보)
     subs = dict(subs) if isinstance(subs, dict) else {}
@@ -313,10 +340,16 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
                 except (OSError, ValueError, KeyError):
                     pass
     refs, seen = [], set()
+    words_of = {x["name"]: " ".join([x["name"]] + x["keywords"]) for x in ser}
     for cid, (ch, vids) in channel_vids.items():
-        source = "롤모델" if cid in role_ids else ("구독 리스트" if cid in subs else "키워드 검색")
-        for h in hits(ch, vids, baseline(vids, today, c["days"]), today, c):
+        source = ("롤모델" if cid in role_ids else "시리즈 채널" if cid in series_ch else
+                  "구독 리스트" if cid in subs else "키워드 검색")
+        for h in hits(ch, vids, baseline(vids, today, 7), today, loose):
             if h["id"] in shown or h["id"] in seen:
+                continue
+            fmt = series_ch.get(cid) or found_by_format.get(h["id"]) or _tag_format(h, formats, {}, words_of)
+            cc = crit_of.get(fmt, c)  # 그 시리즈의 찾기 방식 (시리즈가 없으면 유잡스 기본)
+            if h["age"] > cc["days"] or h["views"] < cc["min_views"] or h["ratio"] < cc["ratio"]:
                 continue
             if source == "키워드 검색" and not topic_ok.get(cid):
                 continue  # 롤모델과 주제가 다른 채널(키워드 하나만 걸린 채널)의 영상은 레퍼런스로 쓰지 않는다
@@ -327,13 +360,13 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
                 continue  # 유튜브 교육 분야인데 제목에 유튜브 얘기가 없는 영상(퇴직·여행 등)은 뺀다
             seen.add(h["id"])
             h["source"] = source
-            h["format"] = _tag_format(h, formats, found_by_format)
+            h["format"] = fmt
             refs.append(h)
     refs.sort(key=lambda r: (-r["ratio"], r["age"]))
     per: Counter = Counter()  # 한 채널이 레퍼런스를 독차지하지 않게 (롤모델 3편, 그 밖 2편까지)
     capped = []
     for r in refs:
-        cap = 3 if r["source"] == "롤모델" else 2
+        cap = 3 if r["source"] in ("롤모델", "시리즈 채널") else 2
         if per[r.get("channel_id") or r["channel"]] < cap:
             per[r.get("channel_id") or r["channel"]] += 1
             capped.append(r)
@@ -344,7 +377,8 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
     (out_dir / "refs.json").write_text(json.dumps(refs, ensure_ascii=False, indent=2), encoding="utf-8")
     result = {"date": today.isoformat(), "folder": str(out_dir), "me": {k: me[k] for k in ("name", "handle", "subs", "avatar", "video_count", "long_count")},
               "exp_count": len(me["experience"]), "keywords": kws, "auto_keywords": auto,
-              "roles": roles, "failed_roles": failed_roles, "bench": bench, "bench_why": dict(why), "bench_checked": len(check_ids), "subs": subs, "refs": refs, "criteria": c, "formats": formats}
+              "roles": roles, "failed_roles": failed_roles, "bench": bench, "bench_why": dict(why), "bench_checked": len(check_ids), "subs": subs, "refs": refs, "criteria": c, "formats": formats,
+              "series": ser, "modes": mds}
     (HOME / "last_result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     step("done"); log("완료!")
     return result
@@ -352,6 +386,7 @@ def analyze(s: dict, log: Callable[[str], None] = print, step: Callable[[str], N
 
 # ---------- 기획하기: 영상 1편 자료 ----------
 def plan_material(video: dict, story: str, s: dict) -> tuple[str, Path]:
+    from . import series as SR
     from .bundle import ts
     try:
         d = collect.video_detail(video["url"], 40)
@@ -378,7 +413,8 @@ def plan_material(video: dict, story: str, s: dict) -> tuple[str, Path]:
           f"- 채널: {d.get('channel')} · 길이 {ts(d.get('duration') or 0)} · 조회 {d.get('views') or 0:,} · 업로드 {video.get('upload_date') or '(모름)'}",
           (f"- 채널 평소 대비 {video.get('ratio')}배" + (f" (평소 {video['baseline']:,}회 = 최근 3개월 롱폼 평균)" if video.get("baseline") else ""))
           if video.get("ratio") else "- 채널 평소 대비 배수: (모름)",
-          f"- 포맷: {video.get('format') or '(미정)'}",
+          f"- 내 시리즈: {video.get('format') or '(미정)'}" + next(
+              (f" — {x['desc']}" for x in SR.load(s) if x["name"] == video.get("format") and x.get("desc")), ""),
           f"- 썸네일: {d.get('thumbnail')}", ""]
     if video.get("note"):
         L += ["### 학원월드 주간 게시글 분석 (대표가 쓴 분석. 기획의 출발점으로 삼고, 이 분석이 짚은 '왜 터졌나'를 내 영상에서 살릴 것)",
